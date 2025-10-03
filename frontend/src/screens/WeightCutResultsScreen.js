@@ -7,20 +7,101 @@ import {
   TouchableOpacity,
   Dimensions,
   Modal,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { COLORS } from '../styles/colors';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function WeightCutResultsScreen({ route, navigation }) {
   const { analysisResult, formData } = route.params;
+  const { userId } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleNewAnalysis = () => {
     navigation.goBack();
+  };
+
+  const handleSaveWeightCut = async () => {
+    if (!userId) {
+      Alert.alert(
+        'Error',
+        'No se pudo obtener tu ID de usuario. Por favor, inicia sesión nuevamente.'
+      );
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const payload = {
+        userId: userId,
+        analysisRequest: {
+          currentWeightKg: parseFloat(formData.currentWeightKg),
+          targetWeightKg: parseFloat(formData.targetWeightKg),
+          daysToCut: parseInt(formData.daysToCut),
+          userHeight: parseFloat(formData.userHeight),
+          userAge: parseInt(formData.userAge),
+          experienceLevel: formData.experienceLevel,
+          combatSport: formData.combatSport,
+          trainingSessionsPerWeek: parseInt(formData.trainingSessionsPerWeek),
+          trainingSessionsPerDay: parseInt(formData.trainingSessionsPerDay),
+          model: formData.model
+        },
+        analysisResponse: {
+          riskAnalysis: analysisResult.riskAnalysis,
+          actionPlan: analysisResult.actionPlan,
+          analysisConfidence: analysisResult.analysisConfidence,
+          modelUsed: analysisResult.modelUsed
+        }
+      };
+
+      console.log('💾 Guardando plan de corte de peso:', payload);
+
+      const response = await fetch(
+        'https://c5uudu6dzvn66jblbxrzne5nx40ljner.lambda-url.us-east-1.on.aws/api/v1/weight-cut/store',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorData}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Plan guardado exitosamente:', result);
+
+      Alert.alert(
+        '✅ Plan Guardado',
+        'Tu plan de corte de peso ha sido guardado exitosamente y está ahora activo.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('Main')
+          }
+        ]
+      );
+
+    } catch (error) {
+      console.error('❌ Error guardando plan de corte:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo guardar el plan de corte de peso. Por favor, intenta nuevamente.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const showInfoModal = (title, content) => {
@@ -320,8 +401,16 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         {activeTab === 'recommendations' && renderRecommendationsTab()}
 
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity style={styles.addToPlanButton} onPress={() => Alert.alert('Información', 'Esta funcionalidad se implementará pronto')}>
-            <Text style={styles.addToPlanButtonText}>Agregar al Plan de Corte</Text>
+          <TouchableOpacity
+            style={[styles.addToPlanButton, isSaving && styles.disabledButton]}
+            onPress={handleSaveWeightCut}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator color={COLORS.secondary} />
+            ) : (
+              <Text style={styles.addToPlanButtonText}>Agregar al Plan de Corte</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.newAnalysisButton} onPress={handleNewAnalysis}>
             <Text style={styles.newAnalysisButtonText}>Nuevo Análisis</Text>
@@ -652,6 +741,9 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   modalOverlay: {
     flex: 1,

@@ -1,19 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function DashboardScreen({ navigation }) {
+  const { userId } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [activeWeightCut, setActiveWeightCut] = useState(null);
+  const [loadingWeightCut, setLoadingWeightCut] = useState(true);
+
+  useEffect(() => {
+    if (userId) {
+      loadActiveWeightCut();
+    }
+  }, [userId]);
+
+  const loadActiveWeightCut = async () => {
+    if (!userId) return;
+
+    try {
+      setLoadingWeightCut(true);
+      const response = await fetch(
+        `https://c5uudu6dzvn66jblbxrzne5nx40ljner.lambda-url.us-east-1.on.aws/api/v1/weight-cut/user/${userId}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const active = data.data?.find(wc => wc.is_active);
+        setActiveWeightCut(active || null);
+        console.log('✅ Weight cut activo:', active ? 'Encontrado' : 'No hay activo');
+      }
+    } catch (error) {
+      console.error('❌ Error cargando weight cut activo:', error);
+    } finally {
+      setLoadingWeightCut(false);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate data refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    await loadActiveWeightCut();
+    setRefreshing(false);
+  };
+
+  const getRiskColor = (riskCode) => {
+    switch (riskCode) {
+      case 'LOW': return '#4CAF50';
+      case 'MODERATE': return '#FF9800';
+      case 'AGGRESSIVE': return '#FF5722';
+      case 'DANGEROUS': return '#F44336';
+      default: return COLORS.secondary;
+    }
+  };
+
+  const getRiskLabel = (riskCode) => {
+    switch (riskCode) {
+      case 'LOW': return 'Riesgo Bajo';
+      case 'MODERATE': return 'Riesgo Moderado';
+      case 'AGGRESSIVE': return 'Riesgo Agresivo';
+      case 'DANGEROUS': return 'Riesgo Peligroso';
+      default: return 'Sin riesgo';
+    }
   };
 
   return (
@@ -38,6 +88,41 @@ export default function DashboardScreen({ navigation }) {
         )}
         <Text style={styles.headerTitle}>Dashboard Informativo</Text>
       </View>
+
+      {/* Barra de Corte Activo */}
+      {!loadingWeightCut && activeWeightCut && (
+        <TouchableOpacity
+          style={[
+            styles.activeWeightCutBar,
+            { borderLeftColor: getRiskColor(activeWeightCut.analysis_response?.riskAnalysis?.riskCode) }
+          ]}
+          onPress={() => {
+            // Navegar a detalles del weight cut (puedes implementar esto después)
+          }}
+        >
+          <View style={styles.activeWeightCutContent}>
+            <View style={styles.activeWeightCutLeft}>
+              <Text style={styles.activeWeightCutTitle}>🎯 Plan de Corte Activo</Text>
+              <Text style={styles.activeWeightCutInfo}>
+                {activeWeightCut.analysis_request?.currentWeightKg} kg → {activeWeightCut.analysis_request?.targetWeightKg} kg
+                <Text style={styles.activeWeightCutDays}> ({activeWeightCut.analysis_request?.daysToCut} días)</Text>
+              </Text>
+            </View>
+            <View style={styles.activeWeightCutRight}>
+              <View
+                style={[
+                  styles.activeWeightCutBadge,
+                  { backgroundColor: getRiskColor(activeWeightCut.analysis_response?.riskAnalysis?.riskCode) }
+                ]}
+              >
+                <Text style={styles.activeWeightCutBadgeText}>
+                  {getRiskLabel(activeWeightCut.analysis_response?.riskAnalysis?.riskCode)}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Tiempo Restante Card */}
       <View style={styles.timeCard}>
@@ -202,6 +287,58 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.secondary,
+  },
+  activeWeightCutBar: {
+    backgroundColor: COLORS.accent,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  activeWeightCutContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activeWeightCutLeft: {
+    flex: 1,
+  },
+  activeWeightCutTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  activeWeightCutInfo: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  activeWeightCutDays: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  activeWeightCutRight: {
+    marginLeft: 10,
+  },
+  activeWeightCutBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  activeWeightCutBadgeText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   timeCard: {
     backgroundColor: '#FF6B6B',
