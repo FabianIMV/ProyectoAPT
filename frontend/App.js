@@ -5,10 +5,12 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ProfileLoadingScreen from './src/screens/ProfileLoadingScreen';
 import TabNavigator from './src/navigation/TabNavigator';
 import NutritionResultsScreen from './src/screens/NutritionResultsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import WeightCutResultsScreen from './src/screens/WeightCutResultsScreen';
+import WeightCutHistoryScreen from './src/screens/WeightCutHistoryScreen';
 import { COLORS } from './src/styles/colors';
 import { AuthProvider } from './src/context/AuthContext';
 
@@ -47,6 +49,11 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="ProfileLoading"
+          component={ProfileLoadingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="Main"
           component={TabNavigator}
           options={{ title: 'Inicio', headerShown: false }}
@@ -65,6 +72,11 @@ export default function App() {
           name="WeightCutResults"
           component={WeightCutResultsScreen}
           options={{ title: 'Plan de Corte de Peso' }}
+        />
+        <Stack.Screen
+          name="WeightCutHistory"
+          component={WeightCutHistoryScreen}
+          options={{ title: 'Historial de Cortes' }}
         />
       </Stack.Navigator>
       </NavigationContainer>

@@ -7,18 +7,19 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  ActivityIndicator,
-  Animated,
   Platform,
   Modal,
   FlatList
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { COLORS } from '../styles/colors';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { useAuth } from '../context/AuthContext';
 
 export default function WeightCutCalculatorScreen({ navigation }) {
+  const { user, userId } = useAuth();
+  const [userProfile, setUserProfile] = useState(null);
   const [formData, setFormData] = useState({
-    currentWeightKg: '',
     targetWeightKg: '',
     daysToCut: '',
     experienceLevel: 'amateur',
@@ -29,46 +30,66 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   });
 
   const [errors, setErrors] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
-  const [spinValue] = useState(new Animated.Value(0));
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showSportModal, setShowSportModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
 
+  // Cargar perfil del usuario al montar el componente
   useEffect(() => {
-    if (isLoading) {
-      Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      spinValue.setValue(0);
-    }
-  }, [isLoading]);
+    loadUserProfile();
+  }, []);
 
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const loadUserProfile = async () => {
+    if (user && user.email) {
+      try {
+        const response = await fetch(
+          'https://3f8q0vhfcf.execute-api.us-east-1.amazonaws.com/dev/profile?email=' + user.email
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data && data.data.length > 0) {
+            const profile = data.data[0];
+            setUserProfile(profile);
+            console.log('✅ Perfil de usuario cargado:', profile);
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando perfil:', error);
+        Alert.alert(
+          'Error',
+          'No se pudo cargar tu perfil. Asegúrate de tener tu peso, altura y edad configurados en tu perfil.'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
-    const { currentWeightKg, targetWeightKg, daysToCut, trainingSessionsPerWeek, trainingSessionsPerDay } = formData;
+    const { targetWeightKg, daysToCut, trainingSessionsPerWeek, trainingSessionsPerDay } = formData;
 
-    // Current Weight validation
-    if (!currentWeightKg || parseFloat(currentWeightKg) < 30) {
-      newErrors.currentWeightKg = 'El peso actual debe ser mínimo 30 kg';
+    // Verificar que el perfil esté cargado
+    if (!userProfile || !userProfile.weight) {
+      newErrors.profile = 'Debes tener tu peso configurado en tu perfil';
+    }
+
+    if (!userProfile || !userProfile.height) {
+      newErrors.profile = 'Debes tener tu altura configurada en tu perfil';
+    }
+
+    if (!userProfile || !userProfile.age) {
+      newErrors.profile = 'Debes tener tu edad configurada en tu perfil';
     }
 
     // Target Weight validation
     if (!targetWeightKg || parseFloat(targetWeightKg) < 30) {
       newErrors.targetWeightKg = 'El peso objetivo debe ser mínimo 30 kg';
-    } else if (parseFloat(targetWeightKg) >= parseFloat(currentWeightKg)) {
-      newErrors.targetWeightKg = 'El peso objetivo debe ser menor al peso actual';
+    } else if (userProfile && parseFloat(targetWeightKg) >= parseFloat(userProfile.weight)) {
+      newErrors.targetWeightKg = 'El peso objetivo debe ser menor a tu peso actual';
     }
 
     // Days to cut validation
@@ -196,13 +217,15 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
     try {
       const requestBody = {
-        currentWeightKg: parseFloat(formData.currentWeightKg),
+        currentWeightKg: parseFloat(userProfile.weight),
         targetWeightKg: parseFloat(formData.targetWeightKg),
         daysToCut: parseInt(formData.daysToCut),
         experienceLevel: formData.experienceLevel,
         combatSport: formData.combatSport,
         trainingSessionsPerWeek: parseInt(formData.trainingSessionsPerWeek),
         trainingSessionsPerDay: parseInt(formData.trainingSessionsPerDay),
+        userHeight: parseFloat(userProfile.height),
+        userAge: parseInt(userProfile.age),
         model: formData.model
       };
 
@@ -230,7 +253,12 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       // Navigate to results screen
       navigation.navigate('WeightCutResults', {
         analysisResult: result,
-        formData: formData
+        formData: {
+          ...formData,
+          currentWeightKg: userProfile.weight,
+          userHeight: userProfile.height,
+          userAge: userProfile.age
+        }
       });
 
     } catch (error) {
@@ -248,13 +276,11 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Animated.View style={[styles.loader, { transform: [{ rotate: spin }] }]}>
-          <ActivityIndicator size="large" color={COLORS.secondary} />
-        </Animated.View>
-        <Text style={styles.loadingText}>Analizando datos con IA...</Text>
-        <Text style={styles.loadingSubtext}>Generando plan personalizado de corte de peso</Text>
-      </View>
+      <LoadingSpinner
+        useDynamicMessages={true}
+        subtitle="Generando plan personalizado de corte de peso"
+        messageInterval={2500}
+      />
     );
   }
 
@@ -268,18 +294,13 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Información Básica</Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Peso Actual (kg) *</Text>
-            <TextInput
-              style={[styles.input, errors.currentWeightKg && styles.inputError]}
-              placeholder="Ej: 70"
-              placeholderTextColor={COLORS.textSecondary}
-              value={formData.currentWeightKg}
-              onChangeText={(value) => handleInputChange('currentWeightKg', value)}
-              keyboardType="numeric"
-            />
-            {errors.currentWeightKg && <Text style={styles.errorText}>{errors.currentWeightKg}</Text>}
-          </View>
+          {/* Mostrar peso actual del perfil */}
+          {userProfile && userProfile.weight && (
+            <View style={styles.infoContainer}>
+              <Text style={styles.infoLabel}>Tu Peso Actual</Text>
+              <Text style={styles.infoValue}>{userProfile.weight} kg</Text>
+            </View>
+          )}
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Peso Objetivo (kg) *</Text>
@@ -487,6 +508,24 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 20,
+  },
+  infoContainer: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+  },
+  infoLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
   },
   label: {
     fontSize: 16,
