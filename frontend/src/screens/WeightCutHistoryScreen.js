@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
+import { WEIGHT_CUT_API } from '../config/api';
 
 export default function WeightCutHistoryScreen({ navigation }) {
   const { userId } = useAuth();
@@ -28,9 +29,7 @@ export default function WeightCutHistoryScreen({ navigation }) {
 
     try {
       setIsLoading(true);
-      const response = await fetch(
-        `https://c5uudu6dzvn66jblbxrzne5nx40ljner.lambda-url.us-east-1.on.aws/api/v1/weight-cut/user/${userId}`
-      );
+      const response = await fetch(WEIGHT_CUT_API.getUserPlans(userId));
 
       if (response.ok) {
         const data = await response.json();

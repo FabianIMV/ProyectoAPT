@@ -15,6 +15,7 @@ import { Picker } from '@react-native-picker/picker';
 import { COLORS } from '../styles/colors';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { WEIGHT_CUT_API, PROFILE_API } from '../config/api';
 
 export default function WeightCutCalculatorScreen({ navigation }) {
   const { user, userId } = useAuth();
@@ -44,9 +45,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   const loadUserProfile = async () => {
     if (user && user.email) {
       try {
-        const response = await fetch(
-          'https://3f8q0vhfcf.execute-api.us-east-1.amazonaws.com/dev/profile?email=' + user.email
-        );
+        const response = await fetch(PROFILE_API.getProfile(user.email));
 
         if (response.ok) {
           const data = await response.json();
@@ -231,16 +230,13 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
       console.log('Sending request:', requestBody);
 
-      const response = await fetch(
-        'https://c5uudu6dzvn66jblbxrzne5nx40ljner.lambda-url.us-east-1.on.aws/api/v1/weight-cut/analyze',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
+      const response = await fetch(WEIGHT_CUT_API.analyze, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       if (!response.ok) {
         const errorData = await response.text();

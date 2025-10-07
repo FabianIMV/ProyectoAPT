@@ -16,90 +16,52 @@ import { WEIGHT_CUT_API } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
-export default function WeightCutResultsScreen({ route, navigation }) {
-  const { analysisResult, formData } = route.params;
+export default function ActivePlanDetailsScreen({ route, navigation }) {
+  const { activePlan } = route.params;
   const { userId } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
-  const [isSaving, setIsSaving] = useState(false);
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
-  const handleNewAnalysis = () => {
-    navigation.goBack();
-  };
+  const analysisResult = activePlan.analysis_response;
+  const formData = activePlan.analysis_request;
 
-  const handleSaveWeightCut = async () => {
-    if (!userId) {
-      Alert.alert(
-        'Error',
-        'No se pudo obtener tu ID de usuario. Por favor, inicia sesión nuevamente.'
-      );
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      const payload = {
-        userId: userId,
-        analysisRequest: {
-          currentWeightKg: parseFloat(formData.currentWeightKg),
-          targetWeightKg: parseFloat(formData.targetWeightKg),
-          daysToCut: parseInt(formData.daysToCut),
-          userHeight: parseFloat(formData.userHeight),
-          userAge: parseInt(formData.userAge),
-          experienceLevel: formData.experienceLevel,
-          combatSport: formData.combatSport,
-          trainingSessionsPerWeek: parseInt(formData.trainingSessionsPerWeek),
-          trainingSessionsPerDay: parseInt(formData.trainingSessionsPerDay),
-          model: formData.model
+  const handleDeactivatePlan = async () => {
+    Alert.alert(
+      'Desactivar Plan',
+      '¿Estás seguro que deseas desactivar este plan de corte? Podrás verlo en el historial.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
         },
-        analysisResponse: {
-          riskAnalysis: analysisResult.riskAnalysis,
-          actionPlan: analysisResult.actionPlan,
-          analysisConfidence: analysisResult.analysisConfidence,
-          modelUsed: analysisResult.modelUsed
-        }
-      };
-
-      console.log('💾 Guardando plan de corte de peso:', payload);
-
-      const response = await fetch(WEIGHT_CUT_API.store, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorData}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Plan guardado exitosamente:', result);
-
-      Alert.alert(
-        '✅ Plan Guardado',
-        'Tu plan de corte de peso ha sido guardado exitosamente y está ahora activo.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('Main')
+        {
+          text: 'Desactivar',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeactivating(true);
+            try {
+              Alert.alert(
+                'Plan Desactivado',
+                'El plan ha sido movido al historial',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => navigation.navigate('Dashboard')
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('❌ Error desactivando plan:', error);
+              Alert.alert('Error', 'No se pudo desactivar el plan');
+            } finally {
+              setIsDeactivating(false);
+            }
           }
-        ]
-      );
-
-    } catch (error) {
-      console.error('❌ Error guardando plan de corte:', error);
-      Alert.alert(
-        'Error',
-        'No se pudo guardar el plan de corte de peso. Por favor, intenta nuevamente.'
-      );
-    } finally {
-      setIsSaving(false);
-    }
+        }
+      ]
+    );
   };
 
   const showInfoModal = (title, content) => {
@@ -136,7 +98,6 @@ export default function WeightCutResultsScreen({ route, navigation }) {
 
   const renderOverviewTab = () => (
     <View style={styles.tabContent}>
-      {/* Plan Summary - First */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>📊 Resumen del Plan</Text>
         <View style={styles.summaryGrid}>
@@ -194,7 +155,6 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Risk Analysis - Enhanced */}
       <View style={styles.riskCard}>
         <View style={styles.riskHeader}>
           <Text style={styles.riskBadge}>{getRiskIcon(analysisResult.riskAnalysis.riskCode)}</Text>
@@ -208,20 +168,27 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         <Text style={styles.riskDescription}>{analysisResult.riskAnalysis.description}</Text>
       </View>
 
-      {/* Analysis Info */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>🤖 Información del Análisis</Text>
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoIcon}>🎯</Text>
-            <Text style={styles.infoLabel}>Confianza</Text>
-            <Text style={styles.infoValue}>{analysisResult.analysisConfidence}%</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoIcon}>🧠</Text>
-            <Text style={styles.infoLabel}>Modelo IA</Text>
-            <Text style={styles.infoValue}>{getModelLabel(analysisResult.modelUsed)}</Text>
-          </View>
+        <Text style={styles.cardTitle}>📅 Información del Plan</Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Creado:</Text>
+          <Text style={styles.infoValue}>{formatDate(activePlan.created_at)}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Deporte:</Text>
+          <Text style={styles.infoValue}>{formData.combatSport}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Nivel:</Text>
+          <Text style={styles.infoValue}>{formData.experienceLevel}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Modelo IA:</Text>
+          <Text style={styles.infoValue}>{getModelLabel(analysisResult.modelUsed)}</Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Confianza:</Text>
+          <Text style={styles.infoValue}>{analysisResult.analysisConfidence}%</Text>
         </View>
       </View>
     </View>
@@ -359,6 +326,17 @@ export default function WeightCutResultsScreen({ route, navigation }) {
     return modelUsed;
   };
 
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const tabs = [
     { key: 'overview', label: 'Resumen' },
     { key: 'nutrition', label: 'Nutrición' },
@@ -369,7 +347,17 @@ export default function WeightCutResultsScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Tab Navigation */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>← Volver</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Plan Activo</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
       <View style={styles.tabBar}>
         <ScrollView
           horizontal
@@ -390,7 +378,6 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         </ScrollView>
       </View>
 
-      {/* Tab Content */}
       <ScrollView style={styles.scrollContent}>
         {activeTab === 'overview' && renderOverviewTab()}
         {activeTab === 'nutrition' && renderNutritionTab()}
@@ -400,23 +387,19 @@ export default function WeightCutResultsScreen({ route, navigation }) {
 
         <View style={styles.buttonsContainer}>
           <TouchableOpacity
-            style={[styles.addToPlanButton, isSaving && styles.disabledButton]}
-            onPress={handleSaveWeightCut}
-            disabled={isSaving}
+            style={[styles.deactivateButton, isDeactivating && styles.disabledButton]}
+            onPress={handleDeactivatePlan}
+            disabled={isDeactivating}
           >
-            {isSaving ? (
-              <ActivityIndicator color={COLORS.secondary} />
+            {isDeactivating ? (
+              <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.addToPlanButtonText}>Agregar al Plan de Corte</Text>
+              <Text style={styles.deactivateButtonText}>Desactivar Plan</Text>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.newAnalysisButton} onPress={handleNewAnalysis}>
-            <Text style={styles.newAnalysisButtonText}>Nuevo Análisis</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Info Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -448,6 +431,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 15,
+    backgroundColor: COLORS.accent,
+  },
+  backButton: {
+    padding: 5,
+  },
+  backButtonText: {
+    color: COLORS.secondary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  headerSpacer: {
+    width: 60,
   },
   tabBar: {
     backgroundColor: COLORS.accent,
@@ -582,35 +590,25 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
-  infoGrid: {
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  infoItem: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 5,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.secondary + '20',
-  },
-  infoIcon: {
-    fontSize: 24,
-    marginBottom: 8,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.primary,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: COLORS.textSecondary,
-    marginBottom: 6,
-    textAlign: 'center',
+    fontWeight: '500',
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: 'bold',
     color: COLORS.text,
-    textAlign: 'center',
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'right',
   },
   phaseTitle: {
     fontSize: 16,
@@ -715,28 +713,14 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
-  addToPlanButton: {
-    backgroundColor: COLORS.accent,
-    borderWidth: 2,
-    borderColor: COLORS.secondary,
-    borderRadius: 15,
-    padding: 18,
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  addToPlanButtonText: {
-    color: COLORS.secondary,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  newAnalysisButton: {
-    backgroundColor: COLORS.secondary,
+  deactivateButton: {
+    backgroundColor: '#FF6B6B',
     borderRadius: 15,
     padding: 18,
     alignItems: 'center',
   },
-  newAnalysisButtonText: {
-    color: COLORS.primary,
+  deactivateButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },

@@ -3,38 +3,118 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Refre
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { WEIGHT_CUT_API, PROFILE_API } from '../config/api';
+import {
+  calculateTimeRemaining,
+  calculateWeightProgress,
+  determineCurrentPhase,
+  getNutritionMetrics,
+  formatTimeRemaining,
+  getPhaseColor,
+  getCurrentAlert
+} from '../services/dashboardService';
 
 const { width } = Dimensions.get('window');
 
 export default function DashboardScreen({ navigation }) {
-  const { userId } = useAuth();
+  const { userId, user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeWeightCut, setActiveWeightCut] = useState(null);
   const [loadingWeightCut, setLoadingWeightCut] = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
 
   useEffect(() => {
-    if (userId) {
-      loadActiveWeightCut();
+    if (userId && user) {
+      loadDashboardData();
     }
-  }, [userId]);
+  }, [userId, user]);
 
-  const loadActiveWeightCut = async () => {
-    if (!userId) return;
+  const loadUserProfile = async () => {
+    if (!user || !user.email) return null;
 
     try {
-      setLoadingWeightCut(true);
-      const response = await fetch(
-        `https://c5uudu6dzvn66jblbxrzne5nx40ljner.lambda-url.us-east-1.on.aws/api/v1/weight-cut/user/${userId}`
-      );
+      const response = await fetch(PROFILE_API.getProfile(user.email));
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data && data.data.length > 0) {
+          return data.data[0];
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error cargando perfil:', error);
+    }
+    return null;
+  };
+
+  const loadActiveWeightCut = async () => {
+    if (!userId) return null;
+
+    try {
+      const response = await fetch(WEIGHT_CUT_API.getUserPlans(userId));
 
       if (response.ok) {
         const data = await response.json();
         const active = data.data?.find(wc => wc.is_active);
-        setActiveWeightCut(active || null);
-        console.log('✅ Weight cut activo:', active ? 'Encontrado' : 'No hay activo');
+        return active || null;
       }
     } catch (error) {
       console.error('❌ Error cargando weight cut activo:', error);
+    }
+    return null;
+  };
+
+  const loadDashboardData = async () => {
+    setLoadingWeightCut(true);
+
+    try {
+      const [profile, activePlan] = await Promise.all([
+        loadUserProfile(),
+        loadActiveWeightCut()
+      ]);
+
+      setUserProfile(profile);
+      setActiveWeightCut(activePlan);
+
+      if (activePlan && profile) {
+        const timeRemaining = calculateTimeRemaining(
+          activePlan.created_at,
+          activePlan.analysis_request?.daysToCut
+        );
+
+        const weightProgress = calculateWeightProgress(
+          parseFloat(profile.weight || activePlan.analysis_request?.currentWeightKg),
+          parseFloat(activePlan.analysis_request?.targetWeightKg),
+          parseFloat(activePlan.analysis_request?.currentWeightKg)
+        );
+
+        const currentPhase = determineCurrentPhase(
+          activePlan.created_at,
+          activePlan.analysis_request?.daysToCut
+        );
+
+        const nutritionMetrics = getNutritionMetrics(activePlan, profile);
+        const currentAlert = getCurrentAlert(currentPhase.phase, nutritionMetrics);
+
+        setDashboardData({
+          timeRemaining,
+          weightProgress,
+          currentPhase,
+          nutritionMetrics,
+          currentAlert
+        });
+
+        console.log('✅ Dashboard data loaded:', {
+          hasActivePlan: true,
+          phase: currentPhase.phase,
+          daysRemaining: timeRemaining.days
+        });
+      } else {
+        setDashboardData(null);
+        console.log('ℹ️ No active plan found');
+      }
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error);
     } finally {
       setLoadingWeightCut(false);
     }
@@ -42,7 +122,7 @@ export default function DashboardScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadActiveWeightCut();
+    await loadDashboardData();
     setRefreshing(false);
   };
 
@@ -89,7 +169,6 @@ export default function DashboardScreen({ navigation }) {
         <Text style={styles.headerTitle}>Dashboard Informativo</Text>
       </View>
 
-      {/* Barra de Corte Activo */}
       {!loadingWeightCut && activeWeightCut && (
         <TouchableOpacity
           style={[
@@ -97,8 +176,11 @@ export default function DashboardScreen({ navigation }) {
             { borderLeftColor: getRiskColor(activeWeightCut.analysis_response?.riskAnalysis?.riskCode) }
           ]}
           onPress={() => {
-            // Navegar a detalles del weight cut (puedes implementar esto después)
+            navigation.navigate('ActivePlanDetails', {
+              activePlan: activeWeightCut
+            });
           }}
+          activeOpacity={0.7}
         >
           <View style={styles.activeWeightCutContent}>
             <View style={styles.activeWeightCutLeft}>
@@ -124,69 +206,128 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* Tiempo Restante Card */}
-      <View style={styles.timeCard}>
-        <Text style={styles.timeLabel}>TIEMPO RESTANTE</Text>
-        <Text style={styles.timeValue}>3 DÍAS 14H</Text>
-        <Text style={styles.timeSubtext}>hasta pesaje oficial</Text>
-      </View>
-
-      {/* Fase Actual Card */}
-      <View style={styles.phaseCard}>
-        <View style={styles.phaseContent}>
-          <Text style={styles.phaseTitle}>FASE: CORTE INTENSIVO</Text>
+      {!loadingWeightCut && !activeWeightCut && (
+        <View style={styles.emptyStateCard}>
+          <Text style={styles.emptyStateIcon}>📋</Text>
+          <Text style={styles.emptyStateTitle}>No tienes un plan activo</Text>
+          <Text style={styles.emptyStateText}>
+            Crea un plan de corte de peso personalizado para empezar a trackear tu progreso
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyStateButton}
+            onPress={() => navigation.navigate('WeightCutCalculator')}
+          >
+            <Text style={styles.emptyStateButtonText}>Crear Plan de Corte</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.phaseSubtitle}>Restriccion de sodio y carbohidratos activa</Text>
-      </View>
+      )}
 
-      {/* Progreso de Peso */}
-      <View style={styles.weightCard}>
-        <Text style={styles.sectionTitle}>Progreso de Peso</Text>
-        <View style={styles.weightProgress}>
-          <Text style={styles.weightCurrent}>73.1kg</Text>
-          <Text style={styles.arrowText}>→</Text>
-          <Text style={styles.weightTarget}>70.0kg</Text>
+      {dashboardData && !dashboardData.timeRemaining.isExpired && (
+        <View style={styles.timeCard}>
+          <Text style={styles.timeLabel}>TIEMPO RESTANTE</Text>
+          <Text style={styles.timeValue}>
+            {formatTimeRemaining(dashboardData.timeRemaining.days, dashboardData.timeRemaining.hours)}
+          </Text>
+          <Text style={styles.timeSubtext}>hasta pesaje oficial</Text>
         </View>
-        <Text style={styles.weightRemaining}>Faltan: 3.1kg</Text>
+      )}
 
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '60%' }]} />
+      {dashboardData && dashboardData.timeRemaining.isExpired && (
+        <View style={[styles.timeCard, { backgroundColor: '#9E9E9E' }]}>
+          <Text style={styles.timeLabel}>PLAN COMPLETADO</Text>
+          <Text style={styles.timeValue}>✓</Text>
+          <Text style={styles.timeSubtext}>El plan ha finalizado</Text>
+        </View>
+      )}
+
+      {dashboardData && (
+        <View style={[
+          styles.phaseCard,
+          { borderColor: getPhaseColor(dashboardData.currentPhase.phase) }
+        ]}>
+          <View style={styles.phaseContent}>
+            <Text style={styles.phaseTitle}>FASE: {dashboardData.currentPhase.description.toUpperCase()}</Text>
           </View>
-          <Text style={styles.progressPercent}>60%</Text>
+          <Text style={styles.phaseSubtitle}>
+            Día {dashboardData.currentPhase.daysInPhase + 1} de {dashboardData.currentPhase.totalDaysInPlan}
+          </Text>
         </View>
-      </View>
+      )}
 
-      {/* Metricas Row */}
-      <View style={styles.metricsRow}>
-        <View style={styles.metricCard}>
-          <Text style={styles.metricTitle}>Sodio Hoy</Text>
-          <Text style={styles.metricValue}>280mg</Text>
-          <View style={styles.metricStatus}>
-            <Text style={styles.metricIcon}>✓</Text>
-            <Text style={styles.metricLimit}>/400mg limite</Text>
+      {dashboardData && (
+        <View style={styles.weightCard}>
+          <Text style={styles.sectionTitle}>Progreso de Peso</Text>
+          <View style={styles.weightProgress}>
+            <Text style={styles.weightCurrent}>{dashboardData.weightProgress.currentWeight.toFixed(1)}kg</Text>
+            <Text style={styles.arrowText}>→</Text>
+            <Text style={styles.weightTarget}>{dashboardData.weightProgress.targetWeight.toFixed(1)}kg</Text>
+          </View>
+          <Text style={styles.weightRemaining}>
+            Faltan: {dashboardData.weightProgress.remaining.toFixed(1)}kg
+          </Text>
+
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${dashboardData.weightProgress.percentage}%` }]} />
+            </View>
+            <Text style={styles.progressPercent}>{dashboardData.weightProgress.percentage}%</Text>
           </View>
         </View>
+      )}
 
-        <View style={styles.metricCard}>
-          <Text style={styles.metricTitle}>Hidratacion</Text>
-          <Text style={styles.metricValue}>1.8L</Text>
-          <View style={styles.metricStatus}>
-            <Text style={styles.metricNote}>registrada</Text>
+      {dashboardData && (
+        <View style={styles.metricsRow}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricTitle}>Sodio Hoy</Text>
+            <Text style={styles.metricValue}>
+              {dashboardData.nutritionMetrics.sodium.hasData
+                ? `${dashboardData.nutritionMetrics.sodium.current}mg`
+                : '--'}
+            </Text>
+            <View style={styles.metricStatus}>
+              <Text style={styles.metricNote}>
+                /{dashboardData.nutritionMetrics.sodium.limit}mg límite
+              </Text>
+            </View>
+            {!dashboardData.nutritionMetrics.sodium.hasData && (
+              <Text style={styles.metricPlaceholder}>Sin tracking</Text>
+            )}
+          </View>
+
+          <View style={styles.metricCard}>
+            <Text style={styles.metricTitle}>Hidratación</Text>
+            <Text style={styles.metricValue}>
+              {dashboardData.nutritionMetrics.hydration.hasData
+                ? `${dashboardData.nutritionMetrics.hydration.current}L`
+                : '--'}
+            </Text>
+            <View style={styles.metricStatus}>
+              <Text style={styles.metricNote}>
+                Meta: {dashboardData.nutritionMetrics.hydration.target}L
+              </Text>
+            </View>
+            {!dashboardData.nutritionMetrics.hydration.hasData && (
+              <Text style={styles.metricPlaceholder}>Sin tracking</Text>
+            )}
           </View>
         </View>
-      </View>
+      )}
 
-      {/* Alerta Critica */}
-      <View style={styles.alertCard}>
-        <View style={styles.alertContent}>
-          <Text style={styles.alertIcon}>!</Text>
-          <Text style={styles.alertTitle}>ALERTA CRITICA</Text>
+      {dashboardData && dashboardData.currentAlert && (
+        <View style={[
+          styles.alertCard,
+          dashboardData.currentAlert.level === 'CRITICAL' && { backgroundColor: '#F44336' },
+          dashboardData.currentAlert.level === 'WARNING' && { backgroundColor: '#FF9800' },
+          dashboardData.currentAlert.level === 'INFO' && { backgroundColor: '#2196F3' }
+        ]}>
+          <View style={styles.alertContent}>
+            <Text style={styles.alertIcon}>{dashboardData.currentAlert.icon}</Text>
+            <Text style={styles.alertTitle}>{dashboardData.currentAlert.title}</Text>
+          </View>
+          <Text style={styles.alertText}>{dashboardData.currentAlert.message}</Text>
         </View>
-        <Text style={styles.alertText}>Reduce sodio desde HOY. Maximo 300mg/dia</Text>
-      </View>
+      )}
 
-      {/* Navigation Cards */}
       <View style={styles.navigationSection}>
         <Text style={styles.sectionTitle}>Acceso Rapido</Text>
 
@@ -242,7 +383,6 @@ export default function DashboardScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Acciones Rapidas */}
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>Acciones Rapidas</Text>
         <View style={styles.actionsRow}>
@@ -607,5 +747,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
     fontWeight: '500',
+  },
+  emptyStateCard: {
+    backgroundColor: COLORS.accent,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 15,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    borderStyle: 'dashed',
+  },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  emptyStateButtonText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  metricPlaceholder: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
+import { PROFILE_API } from '../config/api';
 
 export default function ProfileScreen({ navigation, route }) {
   const [profileData, setProfileData] = useState({
@@ -49,7 +50,7 @@ export default function ProfileScreen({ navigation, route }) {
     if (user && user.email) {
       setIsLoading(true);
       try {
-        const response = await fetch('https://3f8q0vhfcf.execute-api.us-east-1.amazonaws.com/dev/profile?email=' + user.email);
+        const response = await fetch(PROFILE_API.getProfile(user.email));
         if (response.ok) {
           const data = await response.json();
           if (data.data && data.data.length > 0) {
