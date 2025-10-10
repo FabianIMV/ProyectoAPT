@@ -1,25 +1,72 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
+import { WEIGHT_CUT_API } from '../config/api';
 
 const { width } = Dimensions.get('window');
 
 export default function NutritionTrackingScreen({ navigation }) {
-  const [meals] = useState([
-    { id: 1, name: 'Desayuno', calories: 450, protein: 25, carbs: 45, fats: 12, time: '08:00' },
-    { id: 2, name: 'Almuerzo', calories: 620, protein: 42, carbs: 58, fats: 18, time: '13:30' },
-    { id: 3, name: 'Cena', calories: 380, protein: 28, carbs: 32, fats: 14, time: '19:00' },
-  ]);
+  const { userId } = useAuth();
+  const [currentDayData, setCurrentDayData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [meals] = useState([]);
+
+  useEffect(() => {
+    loadTimelineData();
+  }, [userId]);
+
+  const loadTimelineData = async () => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(WEIGHT_CUT_API.getTimeline(userId));
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          const timeline = result.data;
+          const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
+
+          if (dayIndex !== null && dayIndex >= 0 && dayIndex !== 'completed') {
+            setCurrentDayData(timeline.timeline_data.days[dayIndex]);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando timeline:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculateCurrentDay = (startDate, totalDays) => {
+    const start = new Date(startDate);
+    const today = new Date();
+    start.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const dayIndex = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+
+    if (dayIndex < 0) return null;
+    if (dayIndex >= totalDays) return 'completed';
+
+    return dayIndex;
+  };
 
   const totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0);
-  const targetCalories = 2200;
+  const targetCalories = currentDayData ? currentDayData.targets.caloriesIntake : 2200;
   const remainingCalories = targetCalories - totalCalories;
   const progressPercentage = (totalCalories / targetCalories) * 100;
 
   const totalProtein = meals.reduce((sum, meal) => sum + meal.protein, 0);
   const totalCarbs = meals.reduce((sum, meal) => sum + meal.carbs, 0);
   const totalFats = meals.reduce((sum, meal) => sum + meal.fats, 0);
+
+  const targetProtein = currentDayData ? currentDayData.targets.macros.proteinGrams : 150;
+  const targetCarbs = currentDayData ? currentDayData.targets.macros.carbGrams : 200;
+  const targetFats = currentDayData ? currentDayData.targets.macros.fatGrams : 60;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -55,34 +102,54 @@ export default function NutritionTrackingScreen({ navigation }) {
       </View>
 
       {/* Macros Card */}
-      <View style={styles.macrosCard}>
-        <Text style={styles.sectionTitle}>Macronutrientes</Text>
-        <View style={styles.macrosGrid}>
-          <View style={styles.macroItem}>
-            <View style={[styles.macroIcon, { backgroundColor: '#4CAF50' }]}>
-              <Ionicons name="fitness" size={24} color="white" />
+      {currentDayData && (
+        <View style={styles.macrosCard}>
+          <Text style={styles.sectionTitle}>Macronutrientes del Día</Text>
+          <View style={styles.macrosGrid}>
+            <View style={styles.macroItem}>
+              <View style={styles.macroCircleContainer}>
+                <View style={[styles.macroCircle, { borderColor: '#4CAF50' }]}>
+                  <Text style={styles.macroCircleValue}>{totalProtein}</Text>
+                  <Text style={styles.macroCircleLabel}>de {targetProtein}</Text>
+                  <Text style={styles.macroCircleUnit}>gramos</Text>
+                </View>
+              </View>
+              <Text style={styles.macroLabel}>Proteínas</Text>
             </View>
-            <Text style={styles.macroValue}>{totalProtein}g</Text>
-            <Text style={styles.macroLabel}>Proteinas</Text>
-          </View>
 
-          <View style={styles.macroItem}>
-            <View style={[styles.macroIcon, { backgroundColor: '#FF9800' }]}>
-              <Ionicons name="flame" size={24} color="white" />
+            <View style={styles.macroItem}>
+              <View style={styles.macroCircleContainer}>
+                <View style={[styles.macroCircle, { borderColor: '#FF9800' }]}>
+                  <Text style={styles.macroCircleValue}>{totalCarbs}</Text>
+                  <Text style={styles.macroCircleLabel}>de {targetCarbs}</Text>
+                  <Text style={styles.macroCircleUnit}>gramos</Text>
+                </View>
+              </View>
+              <Text style={styles.macroLabel}>Carbohidratos</Text>
             </View>
-            <Text style={styles.macroValue}>{totalCarbs}g</Text>
-            <Text style={styles.macroLabel}>Carbohidratos</Text>
-          </View>
 
-          <View style={styles.macroItem}>
-            <View style={[styles.macroIcon, { backgroundColor: '#2196F3' }]}>
-              <Ionicons name="water" size={24} color="white" />
+            <View style={styles.macroItem}>
+              <View style={styles.macroCircleContainer}>
+                <View style={[styles.macroCircle, { borderColor: '#2196F3' }]}>
+                  <Text style={styles.macroCircleValue}>{totalFats}</Text>
+                  <Text style={styles.macroCircleLabel}>de {targetFats}</Text>
+                  <Text style={styles.macroCircleUnit}>gramos</Text>
+                </View>
+              </View>
+              <Text style={styles.macroLabel}>Grasas</Text>
             </View>
-            <Text style={styles.macroValue}>{totalFats}g</Text>
-            <Text style={styles.macroLabel}>Grasas</Text>
           </View>
         </View>
-      </View>
+      )}
+
+      {/* Timeline Recommendations */}
+      {currentDayData && (
+        <View style={styles.recommendationsCard}>
+          <Text style={styles.sectionTitle}>Recomendaciones del Día</Text>
+          <Text style={styles.recommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
+          <Text style={styles.recommendationText}>{currentDayData.recommendations.mealTiming}</Text>
+        </View>
+      )}
 
       {/* Meals List */}
       <View style={styles.mealsSection}>
@@ -93,33 +160,41 @@ export default function NutritionTrackingScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {meals.map((meal) => (
-          <View key={meal.id} style={styles.mealCard}>
-            <View style={styles.mealHeader}>
-              <View>
-                <Text style={styles.mealName}>{meal.name}</Text>
-                <Text style={styles.mealTime}>{meal.time}</Text>
-              </View>
-              <Text style={styles.mealCalories}>{meal.calories} cal</Text>
-            </View>
-
-            <View style={styles.mealMacros}>
-              <View style={styles.mealMacroItem}>
-                <Text style={styles.mealMacroValue}>P: {meal.protein}g</Text>
-              </View>
-              <View style={styles.mealMacroItem}>
-                <Text style={styles.mealMacroValue}>C: {meal.carbs}g</Text>
-              </View>
-              <View style={styles.mealMacroItem}>
-                <Text style={styles.mealMacroValue}>G: {meal.fats}g</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity style={styles.editMealButton}>
-              <Text style={styles.editMealText}>Editar</Text>
-            </TouchableOpacity>
+        {meals.length === 0 ? (
+          <View style={styles.emptyMealsCard}>
+            <Text style={styles.emptyMealsIcon}>🍽️</Text>
+            <Text style={styles.emptyMealsText}>No hay comidas registradas</Text>
+            <Text style={styles.emptyMealsSubtext}>Usa el botón + para agregar tu primera comida</Text>
           </View>
-        ))}
+        ) : (
+          meals.map((meal) => (
+            <View key={meal.id} style={styles.mealCard}>
+              <View style={styles.mealHeader}>
+                <View>
+                  <Text style={styles.mealName}>{meal.name}</Text>
+                  <Text style={styles.mealTime}>{meal.time}</Text>
+                </View>
+                <Text style={styles.mealCalories}>{meal.calories} cal</Text>
+              </View>
+
+              <View style={styles.mealMacros}>
+                <View style={styles.mealMacroItem}>
+                  <Text style={styles.mealMacroValue}>P: {meal.protein}g</Text>
+                </View>
+                <View style={styles.mealMacroItem}>
+                  <Text style={styles.mealMacroValue}>C: {meal.carbs}g</Text>
+                </View>
+                <View style={styles.mealMacroItem}>
+                  <Text style={styles.mealMacroValue}>G: {meal.fats}g</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity style={styles.editMealButton}>
+                <Text style={styles.editMealText}>Editar</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </View>
 
       <View style={styles.bottomSpacing} />
@@ -216,6 +291,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF6B6B',
   },
+  recommendationsCard: {
+    backgroundColor: COLORS.accent,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 20,
+    padding: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  recommendationText: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 10,
+    lineHeight: 20,
+  },
   macrosCard: {
     backgroundColor: COLORS.accent,
     marginHorizontal: 20,
@@ -237,24 +327,49 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  macroIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+  macroCircleContainer: {
     marginBottom: 10,
   },
-  macroValue: {
-    fontSize: 20,
+  macroCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 6,
+  },
+  macroCircleValue: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 5,
+  },
+  macroCircleLabel: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  macroCircleUnit: {
+    fontSize: 9,
+    color: COLORS.textSecondary,
   },
   macroLabel: {
     fontSize: 12,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    fontWeight: '600',
+  },
+  timelineInfo: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 15,
+  },
+  timelineInfoText: {
+    fontSize: 13,
+    color: COLORS.text,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   mealsSection: {
     paddingHorizontal: 20,
@@ -325,5 +440,29 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 20,
+  },
+  emptyMealsCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 15,
+    padding: 40,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    borderStyle: 'dashed',
+  },
+  emptyMealsIcon: {
+    fontSize: 48,
+    marginBottom: 15,
+  },
+  emptyMealsText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  emptyMealsSubtext: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
 });

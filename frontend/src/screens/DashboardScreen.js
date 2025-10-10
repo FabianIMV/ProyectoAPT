@@ -23,12 +23,27 @@ export default function DashboardScreen({ navigation }) {
   const [loadingWeightCut, setLoadingWeightCut] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
+  const [activeTimeline, setActiveTimeline] = useState(null);
+  const [currentDayData, setCurrentDayData] = useState(null);
+  const [loadingTimeline, setLoadingTimeline] = useState(true);
+  const [needsTimeline, setNeedsTimeline] = useState(false);
 
   useEffect(() => {
     if (userId && user) {
       loadDashboardData();
     }
   }, [userId, user]);
+
+  // Listener para recargar cuando vuelve de otras pantallas
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (userId && user) {
+        loadDashboardData();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, userId, user]);
 
   const loadUserProfile = async () => {
     if (!user || !user.email) return null;
@@ -64,48 +79,118 @@ export default function DashboardScreen({ navigation }) {
     return null;
   };
 
-  const loadDashboardData = async () => {
-    setLoadingWeightCut(true);
+  const loadActiveTimeline = async () => {
+    if (!userId) return null;
 
     try {
-      const [profile, activePlan] = await Promise.all([
+      const response = await fetch(WEIGHT_CUT_API.getTimeline(userId));
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          return result.data;
+        }
+      } else if (response.status === 404) {
+        console.log('ℹ️ No active timeline found');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error cargando timeline:', error);
+    }
+    return null;
+  };
+
+  const calculateCurrentDay = (startDate, totalDays) => {
+    const start = new Date(startDate);
+    const today = new Date();
+    start.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const dayIndex = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+
+    if (dayIndex < 0) return null;
+    if (dayIndex >= totalDays) return 'completed';
+
+    return dayIndex;
+  };
+
+  const loadDashboardData = async () => {
+    setLoadingWeightCut(true);
+    setLoadingTimeline(true);
+
+    try {
+      const [profile, activePlan, timeline] = await Promise.all([
         loadUserProfile(),
-        loadActiveWeightCut()
+        loadActiveWeightCut(),
+        loadActiveTimeline()
       ]);
 
       setUserProfile(profile);
       setActiveWeightCut(activePlan);
+      setActiveTimeline(timeline);
+
+      if (activePlan && !timeline) {
+        setNeedsTimeline(true);
+        setLoadingTimeline(false);
+        setLoadingWeightCut(false);
+        return;
+      }
 
       if (activePlan && profile) {
-        const timeRemaining = calculateTimeRemaining(
-          activePlan.created_at,
-          activePlan.analysis_request?.daysToCut
-        );
+        let currentDayInfo = null;
+        let phaseData = null;
+
+        if (timeline && timeline.timeline_data?.days) {
+          const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
+
+          if (dayIndex === 'completed') {
+            setDashboardData({ timeRemaining: { isExpired: true } });
+          } else if (dayIndex !== null && dayIndex >= 0) {
+            currentDayInfo = timeline.timeline_data.days[dayIndex];
+            setCurrentDayData(currentDayInfo);
+          }
+        }
+
+        const timeRemaining = timeline
+          ? calculateTimeRemaining(timeline.start_date, timeline.total_days)
+          : calculateTimeRemaining(activePlan.created_at, activePlan.analysis_request?.daysToCut);
 
         const weightProgress = calculateWeightProgress(
-          parseFloat(profile.weight || activePlan.analysis_request?.currentWeightKg),
-          parseFloat(activePlan.analysis_request?.targetWeightKg),
+          parseFloat(activePlan.analysis_request?.currentWeightKg),
+          currentDayInfo ? parseFloat(currentDayInfo.targets.weightKg) : parseFloat(activePlan.analysis_request?.targetWeightKg),
           parseFloat(activePlan.analysis_request?.currentWeightKg)
         );
 
-        const currentPhase = determineCurrentPhase(
-          activePlan.created_at,
-          activePlan.analysis_request?.daysToCut
-        );
+        const currentPhase = currentDayInfo
+          ? { phase: currentDayInfo.phase, description: currentDayInfo.phaseReference, daysInPhase: currentDayInfo.day - 1, totalDaysInPlan: timeline.total_days }
+          : determineCurrentPhase(activePlan.created_at, activePlan.analysis_request?.daysToCut);
 
-        const nutritionMetrics = getNutritionMetrics(activePlan, profile);
-        const currentAlert = getCurrentAlert(currentPhase.phase, nutritionMetrics);
+        const nutritionMetrics = currentDayInfo
+          ? {
+              calories: { current: null, target: currentDayInfo.targets.caloriesIntake, hasData: false },
+              hydration: { current: null, target: currentDayInfo.targets.waterIntakeLiters, hasData: false },
+              sodium: { current: null, limit: 2300, hasData: false },
+              macros: currentDayInfo.targets.macros
+            }
+          : getNutritionMetrics(activePlan, profile);
+
+        const currentAlert = currentDayInfo && currentDayInfo.warnings?.length > 0
+          ? { level: 'WARNING', icon: '⚠️', title: 'Advertencias del Día', message: currentDayInfo.warnings.join(' ') }
+          : getCurrentAlert(currentPhase.phase, nutritionMetrics);
 
         setDashboardData({
           timeRemaining,
           weightProgress,
           currentPhase,
           nutritionMetrics,
-          currentAlert
+          currentAlert,
+          hasTimeline: !!timeline,
+          currentDayInfo
         });
 
         console.log('✅ Dashboard data loaded:', {
           hasActivePlan: true,
+          hasTimeline: !!timeline,
           phase: currentPhase.phase,
           daysRemaining: timeRemaining.days
         });
@@ -117,6 +202,7 @@ export default function DashboardScreen({ navigation }) {
       console.error('❌ Error loading dashboard data:', error);
     } finally {
       setLoadingWeightCut(false);
+      setLoadingTimeline(false);
     }
   };
 
@@ -222,6 +308,28 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
+      {!loadingWeightCut && !loadingTimeline && needsTimeline && activeWeightCut && (
+        <View style={styles.timelineNeededCard}>
+          <Text style={styles.timelineNeededIcon}>📅</Text>
+          <Text style={styles.timelineNeededTitle}>Timeline Requerido</Text>
+          <Text style={styles.timelineNeededText}>
+            Necesitas activar tu timeline diario para acceder al dashboard personalizado.
+          </Text>
+          <Text style={styles.timelineNeededSubtext}>
+            El timeline generará objetivos específicos para cada día de tu plan de corte.
+          </Text>
+          <TouchableOpacity
+            style={styles.timelineNeededButton}
+            onPress={() => navigation.navigate('ActivateTimeline', {
+              activePlan: activeWeightCut,
+              totalDays: activeWeightCut.analysis_request?.daysToCut
+            })}
+          >
+            <Text style={styles.timelineNeededButtonText}>Activar Timeline</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {dashboardData && !dashboardData.timeRemaining.isExpired && (
         <View style={styles.timeCard}>
           <Text style={styles.timeLabel}>TIEMPO RESTANTE</Text>
@@ -240,56 +348,83 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
-      {dashboardData && (
-        <View style={[
-          styles.phaseCard,
-          { borderColor: getPhaseColor(dashboardData.currentPhase.phase) }
-        ]}>
-          <View style={styles.phaseContent}>
-            <Text style={styles.phaseTitle}>FASE: {dashboardData.currentPhase.description.toUpperCase()}</Text>
-          </View>
-          <Text style={styles.phaseSubtitle}>
-            Día {dashboardData.currentPhase.daysInPhase + 1} de {dashboardData.currentPhase.totalDaysInPlan}
-          </Text>
-        </View>
-      )}
+
 
       {dashboardData && (
         <View style={styles.weightCard}>
-          <Text style={styles.sectionTitle}>Progreso de Peso</Text>
-          <View style={styles.weightProgress}>
-            <Text style={styles.weightCurrent}>{dashboardData.weightProgress.currentWeight.toFixed(1)}kg</Text>
-            <Text style={styles.arrowText}>→</Text>
-            <Text style={styles.weightTarget}>{dashboardData.weightProgress.targetWeight.toFixed(1)}kg</Text>
-          </View>
-          <Text style={styles.weightRemaining}>
-            Faltan: {dashboardData.weightProgress.remaining.toFixed(1)}kg
-          </Text>
-
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${dashboardData.weightProgress.percentage}%` }]} />
+          <Text style={styles.sectionTitle}>Progreso de Peso Diario</Text>
+          <View style={styles.weightInfoRow}>
+            <View style={styles.weightInfoItem}>
+              <Text style={styles.weightInfoLabel}>Peso Actual</Text>
+              <Text style={styles.weightInfoValue}>{dashboardData.weightProgress.startWeight.toFixed(1)} kg</Text>
             </View>
-            <Text style={styles.progressPercent}>{dashboardData.weightProgress.percentage}%</Text>
+            <View style={styles.weightInfoItem}>
+              <Text style={styles.weightInfoLabel}>Peso Objetivo</Text>
+              <Text style={styles.weightInfoValue}>{dashboardData.weightProgress.targetWeight.toFixed(1)} kg</Text>
+            </View>
+          </View>
+
+          <Text style={styles.weightNote}>
+            Actualiza tu peso diariamente para ver tu progreso real
+          </Text>
+        </View>
+      )}
+
+      {currentDayData && (
+        <View style={styles.todayCard}>
+          <Text style={styles.todayTitle}>📅 OBJETIVOS DE HOY - Día {currentDayData.day}</Text>
+          <Text style={styles.todayDate}>{new Date(currentDayData.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+
+          <View style={styles.todayTargetsGrid}>
+            <View style={styles.todayTargetItem}>
+              <Text style={styles.todayTargetIcon}>🎯</Text>
+              <Text style={styles.todayTargetLabel}>Peso Objetivo</Text>
+              <Text style={styles.todayTargetValue}>{currentDayData.targets.weightKg} kg</Text>
+            </View>
+            <View style={styles.todayTargetItem}>
+              <Text style={styles.todayTargetIcon}>🔥</Text>
+              <Text style={styles.todayTargetLabel}>Calorías</Text>
+              <Text style={styles.todayTargetValue}>{currentDayData.targets.caloriesIntake}</Text>
+            </View>
+            <View style={styles.todayTargetItem}>
+              <Text style={styles.todayTargetIcon}>💧</Text>
+              <Text style={styles.todayTargetLabel}>Agua</Text>
+              <Text style={styles.todayTargetValue}>{currentDayData.targets.waterIntakeLiters}L</Text>
+            </View>
+          </View>
+
+          {currentDayData.targets.cardioMinutes > 0 && (
+            <View style={styles.todayCardioSection}>
+              <Text style={styles.todayCardioText}>
+                🏃 Cardio: {currentDayData.targets.cardioMinutes} min
+                {currentDayData.targets.saunaSuitRequired && ' 🧥 (con traje sauna)'}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.todayRecommendations}>
+            <Text style={styles.todayRecommendationsTitle}>Plan del Día</Text>
+            <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
+            <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.hydrationNote}</Text>
           </View>
         </View>
       )}
 
-      {dashboardData && (
+      {dashboardData && !currentDayData && (
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
             <Text style={styles.metricTitle}>Sodio Hoy</Text>
             <Text style={styles.metricValue}>
-              {dashboardData.nutritionMetrics.sodium.hasData
+              {dashboardData.nutritionMetrics.sodium?.hasData
                 ? `${dashboardData.nutritionMetrics.sodium.current}mg`
                 : '--'}
             </Text>
             <View style={styles.metricStatus}>
               <Text style={styles.metricNote}>
-                /{dashboardData.nutritionMetrics.sodium.limit}mg límite
+                /{dashboardData.nutritionMetrics.sodium?.limit || 2300}mg límite
               </Text>
             </View>
-            {!dashboardData.nutritionMetrics.sodium.hasData && (
+            {!dashboardData.nutritionMetrics.sodium?.hasData && (
               <Text style={styles.metricPlaceholder}>Sin tracking</Text>
             )}
           </View>
@@ -297,16 +432,16 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.metricCard}>
             <Text style={styles.metricTitle}>Hidratación</Text>
             <Text style={styles.metricValue}>
-              {dashboardData.nutritionMetrics.hydration.hasData
+              {dashboardData.nutritionMetrics.hydration?.hasData
                 ? `${dashboardData.nutritionMetrics.hydration.current}L`
                 : '--'}
             </Text>
             <View style={styles.metricStatus}>
               <Text style={styles.metricNote}>
-                Meta: {dashboardData.nutritionMetrics.hydration.target}L
+                Meta: {dashboardData.nutritionMetrics.hydration?.target || 3.0}L
               </Text>
             </View>
-            {!dashboardData.nutritionMetrics.hydration.hasData && (
+            {!dashboardData.nutritionMetrics.hydration?.hasData && (
               <Text style={styles.metricPlaceholder}>Sin tracking</Text>
             )}
           </View>
@@ -542,29 +677,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
   },
-  weightProgress: {
+  weightInfoRow: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+  },
+  weightInfoItem: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    flex: 1,
   },
-  weightCurrent: {
-    color: COLORS.secondary,
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginRight: 10,
+  weightInfoLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+    fontWeight: '600',
   },
-  weightTarget: {
-    color: COLORS.secondary,
-    fontSize: 24,
+  weightInfoValue: {
+    fontSize: 28,
     fontWeight: 'bold',
-    marginLeft: 10,
+    color: COLORS.secondary,
   },
-  arrowText: {
-    color: COLORS.secondary,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginHorizontal: 10,
+  weightNote: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    paddingHorizontal: 20,
   },
   weightRemaining: {
     color: COLORS.textSecondary,
@@ -793,5 +931,139 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontStyle: 'italic',
     marginTop: 4,
+  },
+  timelineNeededCard: {
+    backgroundColor: COLORS.accent,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 15,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FF9800',
+  },
+  timelineNeededIcon: {
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  timelineNeededTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  timelineNeededText: {
+    fontSize: 14,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 20,
+  },
+  timelineNeededSubtext: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  timelineNeededButton: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+  },
+  timelineNeededButtonText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  todayCard: {
+    backgroundColor: COLORS.accent,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 15,
+    padding: 20,
+  },
+  todayTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  todayDate: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textTransform: 'capitalize',
+    marginBottom: 15,
+  },
+  todayPhaseBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
+  todayPhaseText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  todayTargetsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -5,
+    marginBottom: 15,
+  },
+  todayTargetItem: {
+    width: '33.33%',
+    paddingHorizontal: 5,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  todayTargetIcon: {
+    fontSize: 24,
+    marginBottom: 6,
+  },
+  todayTargetLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  todayTargetValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    textAlign: 'center',
+  },
+  todayCardioSection: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 15,
+  },
+  todayCardioText: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  todayRecommendations: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 15,
+  },
+  todayRecommendationsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginBottom: 10,
+  },
+  todayRecommendationText: {
+    fontSize: 13,
+    color: COLORS.text,
+    marginBottom: 8,
+    lineHeight: 18,
   },
 });

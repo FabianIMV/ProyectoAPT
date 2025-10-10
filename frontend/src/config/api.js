@@ -7,6 +7,8 @@ export const WEIGHT_CUT_API = {
   analyze: `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/analyze`,
   store: `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/store`,
   getUserPlans: (userId) => `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/user/${userId}`,
+  activateTimeline: `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/activate-timeline`,
+  getTimeline: (userId) => `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/timeline/${userId}`,
 };
 
 export const PROFILE_API = {
