@@ -174,8 +174,10 @@ export const formatTimeRemaining = (days, hours) => {
 export const getPhaseColor = (phase) => {
   const phaseColors = {
     'INITIAL': '#4CAF50',
-    'FINAL_WEEK': '#FF9800',
+    'DEPLETION': '#FF9800',
     'WATER_CUT': '#FF5722',
+    'FINAL': '#F44336',
+    'FINAL_WEEK': '#FF9800',
     'WEIGH_IN': '#F44336',
     'COMPLETE': '#9E9E9E',
     'NO_PLAN': '#607D8B'

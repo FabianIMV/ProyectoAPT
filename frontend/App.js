@@ -11,6 +11,7 @@ import NutritionResultsScreen from './src/screens/NutritionResultsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import WeightCutResultsScreen from './src/screens/WeightCutResultsScreen';
 import WeightCutHistoryScreen from './src/screens/WeightCutHistoryScreen';
+import ActivateTimelineScreen from './src/screens/ActivateTimelineScreen';
 import { COLORS } from './src/styles/colors';
 import { AuthProvider } from './src/context/AuthContext';
 
@@ -77,6 +78,11 @@ export default function App() {
           name="WeightCutHistory"
           component={WeightCutHistoryScreen}
           options={{ title: 'Historial de Cortes' }}
+        />
+        <Stack.Screen
+          name="ActivateTimeline"
+          component={ActivateTimelineScreen}
+          options={{ title: 'Activar Timeline Diario' }}
         />
       </Stack.Navigator>
       </NavigationContainer>

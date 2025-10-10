@@ -263,7 +263,8 @@ export default function ProfileScreen({ navigation, route }) {
             routes: [{ name: 'Main' }],
           });
         } else if (navigation) {
-          navigation.goBack();
+          // Notificar que el perfil fue actualizado
+          navigation.navigate('Main', { profileUpdated: true });
         }
       } else {
         console.error('Error saving profile:', response.status);
