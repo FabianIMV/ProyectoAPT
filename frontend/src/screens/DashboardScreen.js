@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +13,8 @@ import {
   getPhaseColor,
   getCurrentAlert
 } from '../services/dashboardService';
+import { addWaterIntake, getDailyWaterIntake } from '../services/waterService';
+import WaterIntakeModal from '../components/WaterIntakeModal';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +29,9 @@ export default function DashboardScreen({ navigation }) {
   const [currentDayData, setCurrentDayData] = useState(null);
   const [loadingTimeline, setLoadingTimeline] = useState(true);
   const [needsTimeline, setNeedsTimeline] = useState(false);
+  const [dailyWaterIntake, setDailyWaterIntake] = useState(0);
+  const [addingWater, setAddingWater] = useState(false);
+  const [waterModalVisible, setWaterModalVisible] = useState(false);
 
   useEffect(() => {
     if (userId && user) {
@@ -114,6 +119,20 @@ export default function DashboardScreen({ navigation }) {
     return dayIndex;
   };
 
+  const loadWaterIntake = async () => {
+    if (!userId) return;
+
+    try {
+      const result = await getDailyWaterIntake(userId);
+      if (result.success && result.data) {
+        const totalLiters = result.data.totalLiters || 0;
+        setDailyWaterIntake(totalLiters);
+      }
+    } catch (error) {
+      console.error('Error cargando consumo de agua:', error);
+    }
+  };
+
   const loadDashboardData = async () => {
     setLoadingWeightCut(true);
     setLoadingTimeline(true);
@@ -124,6 +143,8 @@ export default function DashboardScreen({ navigation }) {
         loadActiveWeightCut(),
         loadActiveTimeline()
       ]);
+
+      await loadWaterIntake();
 
       setUserProfile(profile);
       setActiveWeightCut(activePlan);
@@ -229,6 +250,32 @@ export default function DashboardScreen({ navigation }) {
       case 'AGGRESSIVE': return 'Riesgo Agresivo';
       case 'DANGEROUS': return 'Riesgo Peligroso';
       default: return 'Sin riesgo';
+    }
+  };
+
+  const handleAddWater = async (amount = 250) => {
+    if (!userId) {
+      Alert.alert('Error', 'No se pudo identificar al usuario');
+      return;
+    }
+
+    setAddingWater(true);
+
+    try {
+      const result = await addWaterIntake(userId, amount);
+
+      if (result.success) {
+        await loadWaterIntake();
+        Alert.alert('Registrado', `${amount}ml de agua agregados correctamente`);
+        setWaterModalVisible(false);
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo registrar el consumo de agua');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Ocurrió un error al registrar el agua');
+      console.error('Error en handleAddWater:', error);
+    } finally {
+      setAddingWater(false);
     }
   };
 
@@ -429,22 +476,27 @@ export default function DashboardScreen({ navigation }) {
             )}
           </View>
 
-          <View style={styles.metricCard}>
-            <Text style={styles.metricTitle}>Hidratación</Text>
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={() => navigation.navigate('WaterHistory')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.metricHeader}>
+              <Text style={styles.metricTitle}>Hidratación</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.secondary} />
+            </View>
             <Text style={styles.metricValue}>
-              {dashboardData.nutritionMetrics.hydration?.hasData
-                ? `${dashboardData.nutritionMetrics.hydration.current}L`
-                : '--'}
+              {dailyWaterIntake > 0 ? `${dailyWaterIntake.toFixed(1)}L` : '--'}
             </Text>
             <View style={styles.metricStatus}>
               <Text style={styles.metricNote}>
                 Meta: {dashboardData.nutritionMetrics.hydration?.target || 3.0}L
               </Text>
             </View>
-            {!dashboardData.nutritionMetrics.hydration?.hasData && (
+            {dailyWaterIntake === 0 && (
               <Text style={styles.metricPlaceholder}>Sin tracking</Text>
             )}
-          </View>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -526,9 +578,17 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.actionText}>Peso</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.actionGreen]}>
-            <Ionicons name="water" size={24} color="white" />
-            <Text style={styles.actionText}>+250ml</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionGreen]}
+            onPress={() => setWaterModalVisible(true)}
+            disabled={addingWater}
+          >
+            {addingWater ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="water" size={24} color="white" />
+            )}
+            <Text style={styles.actionText}>Agua</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionButton, styles.actionGreen]}>
@@ -544,6 +604,13 @@ export default function DashboardScreen({ navigation }) {
       </View>
 
       <View style={styles.bottomSpacing} />
+
+      <WaterIntakeModal
+        visible={waterModalVisible}
+        onClose={() => setWaterModalVisible(false)}
+        onSubmit={handleAddWater}
+        loading={addingWater}
+      />
     </ScrollView>
   );
 }
@@ -777,6 +844,12 @@ const styles = StyleSheet.create({
   metricNote: {
     color: COLORS.textSecondary,
     fontSize: 12,
+  },
+  metricHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
   },
   alertCard: {
     backgroundColor: '#FF6B6B',
