@@ -15,3 +15,9 @@ export const PROFILE_API = {
   getProfile: (email) => `${API_ENDPOINTS.PROFILE_BASE}/profile?email=${email}`,
   updateProfile: `${API_ENDPOINTS.PROFILE_BASE}/profile`,
 };
+
+export const WATER_API = {
+  addIntake: `${API_ENDPOINTS.WEIGHT_CUT_BASE}/water/add`,
+  getDailyIntake: (userId, date) => `${API_ENDPOINTS.WEIGHT_CUT_BASE}/water/daily/${userId}${date ? `?date=${date}` : ''}`,
+  getWeeklyIntake: (userId) => `${API_ENDPOINTS.WEIGHT_CUT_BASE}/water/weekly/${userId}`,
+};

@@ -12,6 +12,7 @@ import EditProfileScreen from './src/screens/EditProfileScreen';
 import WeightCutResultsScreen from './src/screens/WeightCutResultsScreen';
 import WeightCutHistoryScreen from './src/screens/WeightCutHistoryScreen';
 import ActivateTimelineScreen from './src/screens/ActivateTimelineScreen';
+import WaterHistoryScreen from './src/screens/WaterHistoryScreen';
 import { COLORS } from './src/styles/colors';
 import { AuthProvider } from './src/context/AuthContext';
 
@@ -83,6 +84,11 @@ export default function App() {
           name="ActivateTimeline"
           component={ActivateTimelineScreen}
           options={{ title: 'Activar Timeline Diario' }}
+        />
+        <Stack.Screen
+          name="WaterHistory"
+          component={WaterHistoryScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
       </NavigationContainer>
