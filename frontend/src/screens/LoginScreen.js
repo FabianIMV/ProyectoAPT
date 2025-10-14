@@ -138,7 +138,7 @@ export default function LoginScreen({ navigation }) {
         onPress={() => navigation.navigate('Register')}
       >
         <Text style={styles.registerLinkText}>
-No tienes cuenta? Registrate aqui
+No tienes cuenta? Regístrate aquí
         </Text>
       </TouchableOpacity>
     </View>
@@ -200,6 +200,7 @@ const styles = StyleSheet.create({
   registerLinkText: {
     color: COLORS.secondary,
     fontSize: 16,
+    fontWeight: 'bold',
   },
   disabledButton: {
     opacity: 0.6,

@@ -282,6 +282,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     paddingHorizontal: 20,
+    fontWeight: 'bold',
   },
   dotsContainer: {
     flexDirection: 'row',
