@@ -13,8 +13,10 @@ import {
   getPhaseColor,
   getCurrentAlert
 } from '../services/dashboardService';
-import { addWaterIntake, getDailyWaterIntake } from '../services/waterService';
+import { addWaterIntake as addWaterIntakeOld, getDailyWaterIntake } from '../services/waterService';
+import { addWaterIntake, getDayProgress, setDailyWeight } from '../services/progressService';
 import WaterIntakeModal from '../components/WaterIntakeModal';
+import WeightInputModal from '../components/WeightInputModal';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +34,13 @@ export default function DashboardScreen({ navigation }) {
   const [dailyWaterIntake, setDailyWaterIntake] = useState(0);
   const [addingWater, setAddingWater] = useState(false);
   const [waterModalVisible, setWaterModalVisible] = useState(false);
+  const [weightModalVisible, setWeightModalVisible] = useState(false);
+  const [savingWeight, setSavingWeight] = useState(false);
+  const [currentDayNumber, setCurrentDayNumber] = useState(null);
+  const [timelineId, setTimelineId] = useState(null);
+  const [dailyProgressData, setDailyProgressData] = useState(null);
+  const [showWeightReminder, setShowWeightReminder] = useState(false);
+  const [yesterdayProgressData, setYesterdayProgressData] = useState(null);
 
   useEffect(() => {
     if (userId && user) {
@@ -49,6 +58,13 @@ export default function DashboardScreen({ navigation }) {
 
     return unsubscribe;
   }, [navigation, userId, user]);
+
+  // Cargar agua cuando tengamos timelineId y currentDayNumber
+  useEffect(() => {
+    if (timelineId && currentDayNumber !== null) {
+      loadWaterIntake();
+    }
+  }, [timelineId, currentDayNumber]);
 
   const loadUserProfile = async () => {
     if (!user || !user.email) return null;
@@ -120,13 +136,22 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const loadWaterIntake = async () => {
-    if (!userId) return;
+    if (!userId || !timelineId || currentDayNumber === null) {
+      console.log('⚠️ No se puede cargar agua: faltan datos', { userId, timelineId, currentDayNumber });
+      return;
+    }
 
     try {
-      const result = await getDailyWaterIntake(userId);
+      // Intentar obtener datos del día actual desde Daily Progress
+      const result = await getDayProgress(userId, timelineId, currentDayNumber);
       if (result.success && result.data) {
-        const totalLiters = result.data.totalLiters || 0;
-        setDailyWaterIntake(totalLiters);
+        const waterLiters = result.data.actualWaterLiters || 0;
+        setDailyWaterIntake(waterLiters);
+        console.log(`✅ Agua del día ${currentDayNumber}: ${waterLiters}L`);
+      } else if (result.notFound) {
+        // Día aún no iniciado (pending)
+        setDailyWaterIntake(0);
+        console.log(`ℹ️ Día ${currentDayNumber} aún no tiene progreso registrado`);
       }
     } catch (error) {
       console.error('Error cargando consumo de agua:', error);
@@ -144,11 +169,64 @@ export default function DashboardScreen({ navigation }) {
         loadActiveTimeline()
       ]);
 
-      await loadWaterIntake();
-
       setUserProfile(profile);
       setActiveWeightCut(activePlan);
       setActiveTimeline(timeline);
+
+      // Guardar timelineId y calcular día actual
+      let calculatedTimelineId = null;
+      let calculatedDayNumber = null;
+
+      if (timeline) {
+        calculatedTimelineId = timeline.id;
+        setTimelineId(calculatedTimelineId);
+
+        const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
+        if (dayIndex !== 'completed' && dayIndex !== null && dayIndex >= 0) {
+          // dayNumber es 1-indexed, dayIndex es 0-indexed
+          calculatedDayNumber = dayIndex + 1;
+          setCurrentDayNumber(calculatedDayNumber);
+        }
+      }
+
+      // Cargar progreso del día actual y del día anterior (para peso)
+      let loadedProgressData = null;
+      let loadedYesterdayProgress = null;
+
+      if (calculatedTimelineId && calculatedDayNumber !== null) {
+        try {
+          // Cargar progreso del día actual
+          const result = await getDayProgress(userId, calculatedTimelineId, calculatedDayNumber);
+
+          if (result.success && result.data) {
+            loadedProgressData = result.data;
+            setDailyProgressData(result.data);
+
+            const waterLiters = result.data.actualWaterLiters || result.data.actual_water_liters || 0;
+            setDailyWaterIntake(waterLiters);
+          } else if (result.notFound) {
+            setDailyWaterIntake(0);
+            setDailyProgressData(null);
+          }
+
+          // Si es día 2 o posterior, cargar progreso del día anterior para obtener el peso
+          if (calculatedDayNumber > 1) {
+            const yesterdayResult = await getDayProgress(userId, calculatedTimelineId, calculatedDayNumber - 1);
+            if (yesterdayResult.success && yesterdayResult.data) {
+              loadedYesterdayProgress = yesterdayResult.data;
+              setYesterdayProgressData(yesterdayResult.data);
+
+              // Verificar si falta registrar el peso del día anterior
+              const yesterdayWeight = yesterdayResult.data.actualWeightKg || yesterdayResult.data.actual_weight_kg;
+              if (!yesterdayWeight) {
+                setShowWeightReminder(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error cargando progreso del día:', error);
+        }
+      }
 
       if (activePlan && !timeline) {
         setNeedsTimeline(true);
@@ -176,8 +254,24 @@ export default function DashboardScreen({ navigation }) {
           ? calculateTimeRemaining(timeline.start_date, timeline.total_days)
           : calculateTimeRemaining(activePlan.created_at, activePlan.analysis_request?.daysToCut);
 
+        // Usar peso del Daily Progress
+        // Día 1: Usar peso del día 1 si existe, si no del perfil
+        // Día 2+: Usar peso del día anterior (peso matutino refleja día anterior)
+        let actualWeight;
+        if (calculatedDayNumber === 1) {
+          // Día 1: usar peso del día 1 si existe
+          actualWeight = loadedProgressData?.actualWeightKg || loadedProgressData?.actual_weight_kg;
+        } else {
+          // Día 2+: usar peso del día anterior
+          actualWeight = loadedYesterdayProgress?.actualWeightKg || loadedYesterdayProgress?.actual_weight_kg;
+        }
+
+        const currentWeight = actualWeight
+          ? parseFloat(actualWeight)
+          : parseFloat(activePlan.analysis_request?.currentWeightKg);
+
         const weightProgress = calculateWeightProgress(
-          parseFloat(activePlan.analysis_request?.currentWeightKg),
+          currentWeight,
           currentDayInfo ? parseFloat(currentDayInfo.targets.weightKg) : parseFloat(activePlan.analysis_request?.targetWeightKg),
           parseFloat(activePlan.analysis_request?.currentWeightKg)
         );
@@ -259,10 +353,18 @@ export default function DashboardScreen({ navigation }) {
       return;
     }
 
+    if (!timelineId || currentDayNumber === null) {
+      Alert.alert(
+        'Timeline Requerido',
+        'Debes activar tu timeline diario para registrar progreso'
+      );
+      return;
+    }
+
     setAddingWater(true);
 
     try {
-      const result = await addWaterIntake(userId, amount);
+      const result = await addWaterIntake(userId, timelineId, currentDayNumber, amount);
 
       if (result.success) {
         await loadWaterIntake();
@@ -279,6 +381,48 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
+  const handleAddWeight = async (weightKg) => {
+    if (!userId) {
+      Alert.alert('Error', 'No se pudo identificar al usuario');
+      return;
+    }
+
+    if (!timelineId || currentDayNumber === null) {
+      Alert.alert(
+        'Timeline Requerido',
+        'Debes activar tu timeline diario para registrar progreso'
+      );
+      return;
+    }
+
+    setSavingWeight(true);
+
+    try {
+      // Determinar a qué día guardar el peso
+      // Si es día 1: guardar en día 1 (no hay día anterior)
+      // Si es día 2+: guardar en día anterior (peso matutino refleja día anterior)
+      const targetDay = currentDayNumber > 1 ? currentDayNumber - 1 : currentDayNumber;
+
+      const result = await setDailyWeight(userId, timelineId, targetDay, weightKg);
+
+      if (result.success) {
+        await loadDashboardData();
+        const message = currentDayNumber > 1
+          ? `Peso de ${weightKg.toFixed(1)}kg registrado como resultado del día ${targetDay}`
+          : `Peso inicial de ${weightKg.toFixed(1)}kg registrado`;
+        Alert.alert('Registrado', message);
+        setWeightModalVisible(false);
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo registrar el peso');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Ocurrió un error al registrar el peso');
+      console.error('Error en handleAddWeight:', error);
+    } finally {
+      setSavingWeight(false);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -292,6 +436,42 @@ export default function DashboardScreen({ navigation }) {
         />
       }
     >
+      {/* Modal de recordatorio de peso */}
+      {showWeightReminder && currentDayNumber > 1 && (
+        <View style={styles.reminderOverlay}>
+          <View style={styles.reminderModal}>
+            <View style={styles.reminderIconContainer}>
+              <Ionicons name="scale" size={48} color={COLORS.secondary} />
+            </View>
+            <Text style={styles.reminderTitle}>Registra tu Peso Matutino</Text>
+            <Text style={styles.reminderText}>
+              Estás en el Día {currentDayNumber}. Por favor registra tu peso de esta mañana
+              para cerrar el progreso del Día {currentDayNumber - 1}.
+            </Text>
+            <Text style={styles.reminderNote}>
+              El peso matutino refleja el resultado del día anterior.
+            </Text>
+            <View style={styles.reminderButtons}>
+              <TouchableOpacity
+                style={styles.reminderButtonPrimary}
+                onPress={() => {
+                  setShowWeightReminder(false);
+                  setWeightModalVisible(true);
+                }}
+              >
+                <Text style={styles.reminderButtonPrimaryText}>Registrar Peso</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.reminderButtonSecondary}
+                onPress={() => setShowWeightReminder(false)}
+              >
+                <Text style={styles.reminderButtonSecondaryText}>Más Tarde</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       <View style={styles.header}>
         {refreshing && (
           <View style={styles.loadingHeader}>
@@ -397,13 +577,31 @@ export default function DashboardScreen({ navigation }) {
 
 
 
-      {dashboardData && (
+      {loadingWeightCut || loadingTimeline ? (
+        <View style={styles.weightCard}>
+          <Text style={styles.sectionTitle}>Progreso de Peso Diario</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.loadingText}>Cargando datos...</Text>
+          </View>
+        </View>
+      ) : dashboardData ? (
         <View style={styles.weightCard}>
           <Text style={styles.sectionTitle}>Progreso de Peso Diario</Text>
           <View style={styles.weightInfoRow}>
             <View style={styles.weightInfoItem}>
               <Text style={styles.weightInfoLabel}>Peso Actual</Text>
               <Text style={styles.weightInfoValue}>{dashboardData.weightProgress.startWeight.toFixed(1)} kg</Text>
+              {currentDayNumber === 1 && (dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg) && (
+                <Text style={styles.weightSource}>📊 Del Día 1</Text>
+              )}
+              {currentDayNumber > 1 && (yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg) && (
+                <Text style={styles.weightSource}>📊 Del Día {currentDayNumber - 1}</Text>
+              )}
+              {!((currentDayNumber === 1 && (dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg)) ||
+                 (currentDayNumber > 1 && (yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg))) && (
+                <Text style={styles.weightSource}>👤 Del perfil</Text>
+              )}
             </View>
             <View style={styles.weightInfoItem}>
               <Text style={styles.weightInfoLabel}>Peso Objetivo</Text>
@@ -412,10 +610,12 @@ export default function DashboardScreen({ navigation }) {
           </View>
 
           <Text style={styles.weightNote}>
-            Actualiza tu peso diariamente para ver tu progreso real
+            {(dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg)
+              ? 'Peso actualizado hoy - ¡Sigue registrando diariamente!'
+              : 'Registra tu peso diario para un seguimiento preciso'}
           </Text>
         </View>
-      )}
+      ) : null}
 
       {currentDayData && (
         <View style={styles.todayCard}>
@@ -537,23 +737,6 @@ export default function DashboardScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.navCard}
-          onPress={() => navigation.navigate('Recommendations')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.navCardContent}>
-            <View style={[styles.navIcon, { backgroundColor: '#2196F3' }]}>
-              <Ionicons name="bulb" size={28} color="white" />
-            </View>
-            <View style={styles.navTextContainer}>
-              <Text style={styles.navTitle}>Recomendaciones</Text>
-              <Text style={styles.navDescription}>Consejos personalizados para ti</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navCard}
           onPress={() => navigation.navigate('Stats')}
           activeOpacity={0.7}
         >
@@ -573,8 +756,16 @@ export default function DashboardScreen({ navigation }) {
       <View style={styles.actionsSection}>
         <Text style={styles.sectionTitle}>Acciones Rapidas</Text>
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={[styles.actionButton, styles.actionGreen]}>
-            <Ionicons name="scale" size={24} color="white" />
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionGreen]}
+            onPress={() => setWeightModalVisible(true)}
+            disabled={savingWeight}
+          >
+            {savingWeight ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="scale" size={24} color="white" />
+            )}
             <Text style={styles.actionText}>Peso</Text>
           </TouchableOpacity>
 
@@ -591,7 +782,10 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.actionText}>Agua</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.actionGreen]}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionGreen]}
+            onPress={() => navigation.navigate('NutritionTracking')}
+          >
             <Ionicons name="restaurant" size={24} color="white" />
             <Text style={styles.actionText}>Comida</Text>
           </TouchableOpacity>
@@ -610,6 +804,14 @@ export default function DashboardScreen({ navigation }) {
         onClose={() => setWaterModalVisible(false)}
         onSubmit={handleAddWater}
         loading={addingWater}
+      />
+
+      <WeightInputModal
+        visible={weightModalVisible}
+        onClose={() => setWeightModalVisible(false)}
+        onSubmit={handleAddWeight}
+        loading={savingWeight}
+        currentDay={currentDayNumber}
       />
     </ScrollView>
   );
@@ -770,6 +972,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     paddingHorizontal: 20,
+  },
+  weightSource: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 5,
+    textAlign: 'center',
   },
   weightRemaining: {
     color: COLORS.textSecondary,
@@ -959,6 +1167,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: '500',
   },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyStateCard: {
     backgroundColor: COLORS.accent,
     marginHorizontal: 20,
@@ -1138,5 +1351,78 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 8,
     lineHeight: 18,
+  },
+  reminderOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    zIndex: 9999,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  reminderModal: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    padding: 30,
+    maxWidth: 400,
+    width: '100%',
+  },
+  reminderIconContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  reminderTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  reminderText: {
+    fontSize: 16,
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: 10,
+    lineHeight: 24,
+  },
+  reminderNote: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 25,
+  },
+  reminderButtons: {
+    gap: 12,
+  },
+  reminderButtonPrimary: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  reminderButtonPrimaryText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  reminderButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: COLORS.textSecondary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  reminderButtonSecondaryText: {
+    color: COLORS.textSecondary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
