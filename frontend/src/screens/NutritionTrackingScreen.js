@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { WEIGHT_CUT_API } from '../config/api';
+import { getDayProgress } from '../services/progressService';
 
 const { width } = Dimensions.get('window');
 
@@ -11,7 +12,10 @@ export default function NutritionTrackingScreen({ navigation }) {
   const { userId } = useAuth();
   const [currentDayData, setCurrentDayData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [meals] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dayProgress, setDayProgress] = useState(null);
+  const [timelineId, setTimelineId] = useState(null);
+  const [currentDayNumber, setCurrentDayNumber] = useState(null);
 
   useEffect(() => {
     loadTimelineData();
@@ -27,10 +31,20 @@ export default function NutritionTrackingScreen({ navigation }) {
         const result = await response.json();
         if (result.success && result.data) {
           const timeline = result.data;
+          setTimelineId(timeline.id);
+
           const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
 
           if (dayIndex !== null && dayIndex >= 0 && dayIndex !== 'completed') {
+            const dayNum = dayIndex + 1;
+            setCurrentDayNumber(dayNum);
             setCurrentDayData(timeline.timeline_data.days[dayIndex]);
+
+            // Cargar progreso del día
+            const progressResult = await getDayProgress(userId, timeline.id, dayNum);
+            if (progressResult.success) {
+              setDayProgress(progressResult.data);
+            }
           }
         }
       }
@@ -40,6 +54,23 @@ export default function NutritionTrackingScreen({ navigation }) {
       setIsLoading(false);
     }
   };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadTimelineData();
+    setRefreshing(false);
+  };
+
+  // Listener para recargar cuando vuelve de Scanner
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (userId) {
+        loadTimelineData();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, userId]);
 
   const calculateCurrentDay = (startDate, totalDays) => {
     const start = new Date(startDate);
@@ -55,21 +86,33 @@ export default function NutritionTrackingScreen({ navigation }) {
     return dayIndex;
   };
 
-  const totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0);
+  // Usar datos del progreso si están disponibles (manejar tanto camelCase como snake_case)
+  const totalCalories = dayProgress?.actualCalories || dayProgress?.actual_calories || 0;
   const targetCalories = currentDayData ? currentDayData.targets.caloriesIntake : 2200;
   const remainingCalories = targetCalories - totalCalories;
   const progressPercentage = (totalCalories / targetCalories) * 100;
 
-  const totalProtein = meals.reduce((sum, meal) => sum + meal.protein, 0);
-  const totalCarbs = meals.reduce((sum, meal) => sum + meal.carbs, 0);
-  const totalFats = meals.reduce((sum, meal) => sum + meal.fats, 0);
+  const totalProtein = dayProgress?.actualProteinGrams || dayProgress?.actual_protein_grams || 0;
+  const totalCarbs = dayProgress?.actualCarbsGrams || dayProgress?.actual_carbs_grams || 0;
+  const totalFats = dayProgress?.actualFatsGrams || dayProgress?.actual_fats_grams || 0;
 
   const targetProtein = currentDayData ? currentDayData.targets.macros.proteinGrams : 150;
   const targetCarbs = currentDayData ? currentDayData.targets.macros.carbGrams : 200;
   const targetFats = currentDayData ? currentDayData.targets.macros.fatGrams : 60;
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[COLORS.secondary]}
+          tintColor={COLORS.secondary}
+        />
+      }
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
@@ -78,38 +121,55 @@ export default function NutritionTrackingScreen({ navigation }) {
       </View>
 
       {/* Daily Summary Card */}
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Resumen Diario</Text>
-        <View style={styles.caloriesContainer}>
-          <View style={styles.caloriesCircle}>
-            <Text style={styles.caloriesValue}>{totalCalories}</Text>
-            <Text style={styles.caloriesLabel}>de {targetCalories}</Text>
-            <Text style={styles.caloriesUnit}>calorias</Text>
+      {isLoading ? (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Resumen Diario</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.loadingNote}>Cargando datos...</Text>
           </View>
         </View>
+      ) : (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Resumen Diario</Text>
+          <View style={styles.caloriesContainer}>
+            <View style={styles.caloriesCircle}>
+              <Text style={styles.caloriesValue}>{totalCalories}</Text>
+              <Text style={styles.caloriesLabel}>de {targetCalories}</Text>
+              <Text style={styles.caloriesUnit}>calorias</Text>
+            </View>
+          </View>
 
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${Math.min(progressPercentage, 100)}%` }]} />
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${Math.min(progressPercentage, 100)}%` }]} />
+            </View>
+          </View>
+
+          <View style={styles.remainingContainer}>
+            <Text style={remainingCalories >= 0 ? styles.remainingText : styles.exceededText}>
+              {remainingCalories >= 0 ? `Quedan ${remainingCalories} cal` : `Excedido por ${Math.abs(remainingCalories)} cal`}
+            </Text>
           </View>
         </View>
-
-        <View style={styles.remainingContainer}>
-          <Text style={remainingCalories >= 0 ? styles.remainingText : styles.exceededText}>
-            {remainingCalories >= 0 ? `Quedan ${remainingCalories} cal` : `Excedido por ${Math.abs(remainingCalories)} cal`}
-          </Text>
-        </View>
-      </View>
+      )}
 
       {/* Macros Card */}
-      {currentDayData && (
+      {isLoading ? (
+        <View style={styles.macrosCard}>
+          <Text style={styles.sectionTitle}>Macronutrientes del Día</Text>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+          </View>
+        </View>
+      ) : currentDayData ? (
         <View style={styles.macrosCard}>
           <Text style={styles.sectionTitle}>Macronutrientes del Día</Text>
           <View style={styles.macrosGrid}>
             <View style={styles.macroItem}>
               <View style={styles.macroCircleContainer}>
                 <View style={[styles.macroCircle, { borderColor: '#4CAF50' }]}>
-                  <Text style={styles.macroCircleValue}>{totalProtein}</Text>
+                  <Text style={styles.macroCircleValue}>{Math.round(totalProtein)}</Text>
                   <Text style={styles.macroCircleLabel}>de {targetProtein}</Text>
                   <Text style={styles.macroCircleUnit}>gramos</Text>
                 </View>
@@ -120,7 +180,7 @@ export default function NutritionTrackingScreen({ navigation }) {
             <View style={styles.macroItem}>
               <View style={styles.macroCircleContainer}>
                 <View style={[styles.macroCircle, { borderColor: '#FF9800' }]}>
-                  <Text style={styles.macroCircleValue}>{totalCarbs}</Text>
+                  <Text style={styles.macroCircleValue}>{Math.round(totalCarbs)}</Text>
                   <Text style={styles.macroCircleLabel}>de {targetCarbs}</Text>
                   <Text style={styles.macroCircleUnit}>gramos</Text>
                 </View>
@@ -131,7 +191,7 @@ export default function NutritionTrackingScreen({ navigation }) {
             <View style={styles.macroItem}>
               <View style={styles.macroCircleContainer}>
                 <View style={[styles.macroCircle, { borderColor: '#2196F3' }]}>
-                  <Text style={styles.macroCircleValue}>{totalFats}</Text>
+                  <Text style={styles.macroCircleValue}>{Math.round(totalFats)}</Text>
                   <Text style={styles.macroCircleLabel}>de {targetFats}</Text>
                   <Text style={styles.macroCircleUnit}>gramos</Text>
                 </View>
@@ -140,7 +200,7 @@ export default function NutritionTrackingScreen({ navigation }) {
             </View>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* Timeline Recommendations */}
       {currentDayData && (
@@ -155,45 +215,53 @@ export default function NutritionTrackingScreen({ navigation }) {
       <View style={styles.mealsSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Comidas Registradas</Text>
-          <TouchableOpacity style={styles.addButton}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('Scanner')}
+          >
             <Ionicons name="add-circle" size={28} color={COLORS.secondary} />
           </TouchableOpacity>
         </View>
 
-        {meals.length === 0 ? (
+        {!dayProgress || totalCalories === 0 ? (
           <View style={styles.emptyMealsCard}>
             <Text style={styles.emptyMealsIcon}>🍽️</Text>
             <Text style={styles.emptyMealsText}>No hay comidas registradas</Text>
-            <Text style={styles.emptyMealsSubtext}>Usa el botón + para agregar tu primera comida</Text>
+            <Text style={styles.emptyMealsSubtext}>Usa el botón + para analizar con cámara</Text>
           </View>
         ) : (
-          meals.map((meal) => (
-            <View key={meal.id} style={styles.mealCard}>
-              <View style={styles.mealHeader}>
-                <View>
-                  <Text style={styles.mealName}>{meal.name}</Text>
-                  <Text style={styles.mealTime}>{meal.time}</Text>
-                </View>
-                <Text style={styles.mealCalories}>{meal.calories} cal</Text>
+          <View style={styles.mealCard}>
+            <View style={styles.mealHeader}>
+              <View>
+                <Text style={styles.mealName}>Registro del Día</Text>
+                <Text style={styles.mealTime}>
+                  {dayProgress?.notes || 'Ver detalle en Dashboard'}
+                </Text>
               </View>
-
-              <View style={styles.mealMacros}>
-                <View style={styles.mealMacroItem}>
-                  <Text style={styles.mealMacroValue}>P: {meal.protein}g</Text>
-                </View>
-                <View style={styles.mealMacroItem}>
-                  <Text style={styles.mealMacroValue}>C: {meal.carbs}g</Text>
-                </View>
-                <View style={styles.mealMacroItem}>
-                  <Text style={styles.mealMacroValue}>G: {meal.fats}g</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.editMealButton}>
-                <Text style={styles.editMealText}>Editar</Text>
-              </TouchableOpacity>
+              <Text style={styles.mealCalories}>{totalCalories} cal</Text>
             </View>
-          ))
+
+            <View style={styles.mealMacros}>
+              <View style={styles.mealMacroItem}>
+                <Text style={styles.mealMacroValue}>P: {totalProtein}g</Text>
+              </View>
+              <View style={styles.mealMacroItem}>
+                <Text style={styles.mealMacroValue}>C: {totalCarbs}g</Text>
+              </View>
+              <View style={styles.mealMacroItem}>
+                <Text style={styles.mealMacroValue}>G: {totalFats}g</Text>
+              </View>
+            </View>
+
+            {(dayProgress?.complianceScore !== null || dayProgress?.compliance_score !== null) && (
+              <View style={styles.complianceBox}>
+                <Text style={styles.complianceLabel}>Cumplimiento</Text>
+                <Text style={styles.complianceValue}>
+                  {dayProgress?.complianceScore || dayProgress?.compliance_score}%
+                </Text>
+              </View>
+            )}
+          </View>
         )}
       </View>
 
@@ -464,5 +532,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  complianceBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    marginTop: 10,
+  },
+  complianceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  complianceValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingNote: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 10,
   },
 });

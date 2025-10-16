@@ -5,7 +5,6 @@ import { COLORS } from '../styles/colors';
 
 import WeightCutCalculatorScreen from '../screens/WeightCutCalculatorScreen';
 import DashboardStackNavigator from './DashboardStackNavigator';
-import ScannerScreen from '../screens/ScannerScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
@@ -21,8 +20,6 @@ export default function TabNavigator() {
             iconName = focused ? 'calculator' : 'calculator-outline';
           } else if (route.name === 'Dashboard') {
             iconName = focused ? 'analytics' : 'analytics-outline';
-          } else if (route.name === 'Scanner') {
-            iconName = focused ? 'scan' : 'scan-outline';
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -53,11 +50,6 @@ export default function TabNavigator() {
         name="Dashboard"
         component={DashboardStackNavigator}
         options={{ title: 'Dashboard' }}
-      />
-      <Tab.Screen
-        name="Scanner"
-        component={ScannerScreen}
-        options={{ title: 'Escaner' }}
       />
       <Tab.Screen
         name="Profile"
