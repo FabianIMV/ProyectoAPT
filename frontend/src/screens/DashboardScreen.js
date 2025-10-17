@@ -481,9 +481,11 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.loadingText}>Actualizando datos...</Text>
           </View>
         )}
-        <Text style={styles.headerTitle}>NutriCombat Dashboard</Text>
-        {currentDayNumber && (
-          <Text style={styles.headerSubtitle}>Día {currentDayNumber} de tu plan</Text>
+        <Text style={styles.headerTitle}>Avance Diario</Text>
+        {currentDayData && currentDayData.date && (
+          <Text style={styles.todayDate}>
+            {new Date(currentDayData.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </Text>
         )}
       </View>
 
@@ -650,9 +652,7 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.todayCardHeader}>
             <View>
               <Text style={styles.todayTitle}>📅 Plan del Día {currentDayData.day}</Text>
-              <Text style={styles.todayDate}>
-                {new Date(currentDayData.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-              </Text>
+
             </View>
             <Ionicons
               name={isPlanExpanded ? "chevron-up" : "chevron-down"}
@@ -810,24 +810,7 @@ export default function DashboardScreen({ navigation }) {
       )}
 
       <View style={styles.navigationSection}>
-        <Text style={styles.sectionTitle}>Acceso Rapido</Text>
-
-        <TouchableOpacity
-          style={styles.navCard}
-          onPress={() => navigation.navigate('NutritionTracking')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.navCardContent}>
-            <View style={[styles.navIcon, { backgroundColor: '#4CAF50' }]}>
-              <Ionicons name="restaurant" size={28} color="white" />
-            </View>
-            <View style={styles.navTextContainer}>
-              <Text style={styles.navTitle}>Seguimiento Nutricional</Text>
-              <Text style={styles.navDescription}>Registra tus comidas y macros</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
-          </View>
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Acceso Rápido</Text>
 
         <TouchableOpacity
           style={styles.navCard}
@@ -839,56 +822,12 @@ export default function DashboardScreen({ navigation }) {
               <Ionicons name="stats-chart" size={28} color="white" />
             </View>
             <View style={styles.navTextContainer}>
-              <Text style={styles.navTitle}>Estadisticas</Text>
+              <Text style={styles.navTitle}>Estadísticas</Text>
               <Text style={styles.navDescription}>Visualiza tu progreso</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
           </View>
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.actionsSection}>
-        <Text style={styles.sectionTitle}>Acciones Rapidas</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionGreen]}
-            onPress={() => setWeightModalVisible(true)}
-            disabled={savingWeight}
-          >
-            {savingWeight ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="scale" size={24} color="white" />
-            )}
-            <Text style={styles.actionText}>Peso</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionGreen]}
-            onPress={() => setWaterModalVisible(true)}
-            disabled={addingWater}
-          >
-            {addingWater ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="water" size={24} color="white" />
-            )}
-            <Text style={styles.actionText}>Agua</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionGreen]}
-            onPress={() => navigation.navigate('NutritionTracking')}
-          >
-            <Ionicons name="restaurant" size={24} color="white" />
-            <Text style={styles.actionText}>Comida</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.actionButton, styles.actionRed]}>
-            <Ionicons name="alert-circle" size={24} color="white" />
-            <Text style={styles.actionText}>Urgencia</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       <View style={styles.bottomSpacing} />
