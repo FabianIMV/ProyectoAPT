@@ -7,6 +7,7 @@ import NutritionTrackingScreen from '../screens/NutritionTrackingScreen';
 import RecommendationsScreen from '../screens/RecommendationsScreen';
 import StatsScreen from '../screens/StatsScreen';
 import ActivePlanDetailsScreen from '../screens/ActivePlanDetailsScreen';
+import ScannerScreen from '../screens/ScannerScreen';
 
 const Stack = createStackNavigator();
 
@@ -23,6 +24,7 @@ export default function DashboardStackNavigator() {
       <Stack.Screen name="Recommendations" component={RecommendationsScreen} />
       <Stack.Screen name="Stats" component={StatsScreen} />
       <Stack.Screen name="ActivePlanDetails" component={ActivePlanDetailsScreen} />
+      <Stack.Screen name="Scanner" component={ScannerScreen} />
     </Stack.Navigator>
   );
 }

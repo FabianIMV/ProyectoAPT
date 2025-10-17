@@ -41,6 +41,7 @@ export default function DashboardScreen({ navigation }) {
   const [dailyProgressData, setDailyProgressData] = useState(null);
   const [showWeightReminder, setShowWeightReminder] = useState(false);
   const [yesterdayProgressData, setYesterdayProgressData] = useState(null);
+  const [isPlanExpanded, setIsPlanExpanded] = useState(false);
 
   useEffect(() => {
     if (userId && user) {
@@ -256,16 +257,17 @@ export default function DashboardScreen({ navigation }) {
 
         // Usar peso del Daily Progress
         // Día 1: Usar peso del día 1 si existe, si no del perfil
-        // Día 2+: Usar peso del día anterior (peso matutino refleja día anterior)
+        // Día 2+: Usar peso del día anterior (peso matutino que se registró en la mañana)
         let actualWeight;
         if (calculatedDayNumber === 1) {
-          // Día 1: usar peso del día 1 si existe
+          // Día 1: usar peso registrado del día 1, o del perfil
           actualWeight = loadedProgressData?.actualWeightKg || loadedProgressData?.actual_weight_kg;
         } else {
-          // Día 2+: usar peso del día anterior
+          // Día 2+: usar peso del día anterior (que fue registrado esta mañana)
           actualWeight = loadedYesterdayProgress?.actualWeightKg || loadedYesterdayProgress?.actual_weight_kg;
         }
 
+        // Peso a mostrar: si hay peso registrado del día correspondiente, usarlo; sino usar peso del perfil
         const currentWeight = actualWeight
           ? parseFloat(actualWeight)
           : parseFloat(activePlan.analysis_request?.currentWeightKg);
@@ -479,46 +481,13 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.loadingText}>Actualizando datos...</Text>
           </View>
         )}
-        <Text style={styles.headerTitle}>Dashboard Informativo</Text>
+        <Text style={styles.headerTitle}>NutriCombat Dashboard</Text>
+        {currentDayNumber && (
+          <Text style={styles.headerSubtitle}>Día {currentDayNumber} de tu plan</Text>
+        )}
       </View>
 
-      {!loadingWeightCut && activeWeightCut && (
-        <TouchableOpacity
-          style={[
-            styles.activeWeightCutBar,
-            { borderLeftColor: getRiskColor(activeWeightCut.analysis_response?.riskAnalysis?.riskCode) }
-          ]}
-          onPress={() => {
-            navigation.navigate('ActivePlanDetails', {
-              activePlan: activeWeightCut
-            });
-          }}
-          activeOpacity={0.7}
-        >
-          <View style={styles.activeWeightCutContent}>
-            <View style={styles.activeWeightCutLeft}>
-              <Text style={styles.activeWeightCutTitle}>🎯 Plan de Corte Activo</Text>
-              <Text style={styles.activeWeightCutInfo}>
-                {activeWeightCut.analysis_request?.currentWeightKg} kg → {activeWeightCut.analysis_request?.targetWeightKg} kg
-                <Text style={styles.activeWeightCutDays}> ({activeWeightCut.analysis_request?.daysToCut} días)</Text>
-              </Text>
-            </View>
-            <View style={styles.activeWeightCutRight}>
-              <View
-                style={[
-                  styles.activeWeightCutBadge,
-                  { backgroundColor: getRiskColor(activeWeightCut.analysis_response?.riskAnalysis?.riskCode) }
-                ]}
-              >
-                <Text style={styles.activeWeightCutBadgeText}>
-                  {getRiskLabel(activeWeightCut.analysis_response?.riskAnalysis?.riskCode)}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      )}
-
+      {/* Empty state - No plan */}
       {!loadingWeightCut && !activeWeightCut && (
         <View style={styles.emptyStateCard}>
           <Text style={styles.emptyStateIcon}>📋</Text>
@@ -535,6 +504,7 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
+      {/* Timeline needed */}
       {!loadingWeightCut && !loadingTimeline && needsTimeline && activeWeightCut && (
         <View style={styles.timelineNeededCard}>
           <Text style={styles.timelineNeededIcon}>📅</Text>
@@ -557,104 +527,228 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
-      {dashboardData && !dashboardData.timeRemaining.isExpired && (
-        <View style={styles.timeCard}>
-          <Text style={styles.timeLabel}>TIEMPO RESTANTE</Text>
-          <Text style={styles.timeValue}>
-            {formatTimeRemaining(dashboardData.timeRemaining.days, dashboardData.timeRemaining.hours)}
-          </Text>
-          <Text style={styles.timeSubtext}>hasta pesaje oficial</Text>
-        </View>
-      )}
+      {/* === HERO METRICS SECTION === */}
+      {/* F-Pattern: Información más importante en la parte superior */}
+      {currentDayData && dashboardData && (
+        <View style={styles.heroMetricsSection}>
+          <Text style={styles.heroMetricsTitle}>Métricas del Día</Text>
 
-      {dashboardData && dashboardData.timeRemaining.isExpired && (
-        <View style={[styles.timeCard, { backgroundColor: '#9E9E9E' }]}>
-          <Text style={styles.timeLabel}>PLAN COMPLETADO</Text>
-          <Text style={styles.timeValue}>✓</Text>
-          <Text style={styles.timeSubtext}>El plan ha finalizado</Text>
-        </View>
-      )}
-
-
-
-      {loadingWeightCut || loadingTimeline ? (
-        <View style={styles.weightCard}>
-          <Text style={styles.sectionTitle}>Progreso de Peso Diario</Text>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.secondary} />
-            <Text style={styles.loadingText}>Cargando datos...</Text>
-          </View>
-        </View>
-      ) : dashboardData ? (
-        <View style={styles.weightCard}>
-          <Text style={styles.sectionTitle}>Progreso de Peso Diario</Text>
-          <View style={styles.weightInfoRow}>
-            <View style={styles.weightInfoItem}>
-              <Text style={styles.weightInfoLabel}>Peso Actual</Text>
-              <Text style={styles.weightInfoValue}>{dashboardData.weightProgress.startWeight.toFixed(1)} kg</Text>
-              {currentDayNumber === 1 && (dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg) && (
-                <Text style={styles.weightSource}>📊 Del Día 1</Text>
-              )}
-              {currentDayNumber > 1 && (yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg) && (
-                <Text style={styles.weightSource}>📊 Del Día {currentDayNumber - 1}</Text>
-              )}
-              {!((currentDayNumber === 1 && (dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg)) ||
-                 (currentDayNumber > 1 && (yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg))) && (
-                <Text style={styles.weightSource}>👤 Del perfil</Text>
-              )}
-            </View>
-            <View style={styles.weightInfoItem}>
-              <Text style={styles.weightInfoLabel}>Peso Objetivo</Text>
-              <Text style={styles.weightInfoValue}>{dashboardData.weightProgress.targetWeight.toFixed(1)} kg</Text>
-            </View>
-          </View>
-
-          <Text style={styles.weightNote}>
-            {(dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg)
-              ? 'Peso actualizado hoy - ¡Sigue registrando diariamente!'
-              : 'Registra tu peso diario para un seguimiento preciso'}
-          </Text>
-        </View>
-      ) : null}
-
-      {currentDayData && (
-        <View style={styles.todayCard}>
-          <Text style={styles.todayTitle}>📅 OBJETIVOS DE HOY - Día {currentDayData.day}</Text>
-          <Text style={styles.todayDate}>{new Date(currentDayData.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
-
-          <View style={styles.todayTargetsGrid}>
-            <View style={styles.todayTargetItem}>
-              <Text style={styles.todayTargetIcon}>🎯</Text>
-              <Text style={styles.todayTargetLabel}>Peso Objetivo</Text>
-              <Text style={styles.todayTargetValue}>{currentDayData.targets.weightKg} kg</Text>
-            </View>
-            <View style={styles.todayTargetItem}>
-              <Text style={styles.todayTargetIcon}>🔥</Text>
-              <Text style={styles.todayTargetLabel}>Calorías</Text>
-              <Text style={styles.todayTargetValue}>{currentDayData.targets.caloriesIntake}</Text>
-            </View>
-            <View style={styles.todayTargetItem}>
-              <Text style={styles.todayTargetIcon}>💧</Text>
-              <Text style={styles.todayTargetLabel}>Agua</Text>
-              <Text style={styles.todayTargetValue}>{currentDayData.targets.waterIntakeLiters}L</Text>
-            </View>
-          </View>
-
-          {currentDayData.targets.cardioMinutes > 0 && (
-            <View style={styles.todayCardioSection}>
-              <Text style={styles.todayCardioText}>
-                🏃 Cardio: {currentDayData.targets.cardioMinutes} min
-                {currentDayData.targets.saunaSuitRequired && ' 🧥 (con traje sauna)'}
+          <View style={styles.heroMetricsGrid}>
+            {/* Peso Card */}
+            <TouchableOpacity
+              style={styles.heroMetricCard}
+              onPress={() => setWeightModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.heroMetricIcon, { backgroundColor: '#4CAF50' }]}>
+                <Ionicons name="scale" size={24} color="white" />
+              </View>
+              <Text style={styles.heroMetricLabel}>Peso</Text>
+              <View style={styles.heroMetricValues}>
+                <Text style={styles.heroMetricCurrent}>
+                  {(() => {
+                    // Día 1: Mostrar peso del día 1 o peso inicial del plan
+                    if (currentDayNumber === 1) {
+                      const day1Weight = dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg;
+                      return (day1Weight || dashboardData.weightProgress.startWeight).toFixed(1);
+                    }
+                    // Día 2+: Mostrar peso del día anterior
+                    const yesterdayWeight = yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg;
+                    return (yesterdayWeight || dashboardData.weightProgress.startWeight).toFixed(1);
+                  })()}
+                </Text>
+                <Text style={styles.heroMetricUnit}>kg</Text>
+              </View>
+              <Text style={styles.heroMetricTarget}>
+                Meta: {currentDayData.targets.weightKg} kg
               </Text>
+              <View style={styles.heroMetricProgress}>
+                <View style={[
+                  styles.heroMetricProgressFill,
+                  {
+                    width: `${Math.min(100, Math.abs(dashboardData.weightProgress.percentageAchieved))}%`,
+                    backgroundColor: dashboardData.weightProgress.percentageAchieved >= 100 ? '#4CAF50' : '#FF9800'
+                  }
+                ]} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Calorías Card */}
+            <TouchableOpacity
+              style={styles.heroMetricCard}
+              onPress={() => navigation.navigate('NutritionTracking')}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.heroMetricIcon, { backgroundColor: '#FF9800' }]}>
+                <Ionicons name="flame" size={24} color="white" />
+              </View>
+              <Text style={styles.heroMetricLabel}>Calorías</Text>
+              <View style={styles.heroMetricValues}>
+                <Text style={styles.heroMetricCurrent}>
+                  {dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0}
+                </Text>
+                <Text style={styles.heroMetricUnit}>cal</Text>
+              </View>
+              <Text style={styles.heroMetricTarget}>
+                Meta: {currentDayData.targets.caloriesIntake} cal
+              </Text>
+              <View style={styles.heroMetricProgress}>
+                <View style={[
+                  styles.heroMetricProgressFill,
+                  {
+                    width: `${Math.min(100, ((dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0) / currentDayData.targets.caloriesIntake) * 100)}%`,
+                    backgroundColor: ((dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0) / currentDayData.targets.caloriesIntake) >= 1 ? '#4CAF50' : COLORS.secondary
+                  }
+                ]} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Agua Card */}
+            <TouchableOpacity
+              style={styles.heroMetricCard}
+              onPress={() => setWaterModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.heroMetricIcon, { backgroundColor: '#2196F3' }]}>
+                <Ionicons name="water" size={24} color="white" />
+              </View>
+              <Text style={styles.heroMetricLabel}>Hidratación</Text>
+              <View style={styles.heroMetricValues}>
+                <Text style={styles.heroMetricCurrent}>{dailyWaterIntake.toFixed(1)}</Text>
+                <Text style={styles.heroMetricUnit}>L</Text>
+              </View>
+              <Text style={styles.heroMetricTarget}>
+                Meta: {currentDayData.targets.waterIntakeLiters}L
+              </Text>
+              <View style={styles.heroMetricProgress}>
+                <View style={[
+                  styles.heroMetricProgressFill,
+                  {
+                    width: `${Math.min(100, (dailyWaterIntake / currentDayData.targets.waterIntakeLiters) * 100)}%`,
+                    backgroundColor: dailyWaterIntake >= currentDayData.targets.waterIntakeLiters ? '#4CAF50' : '#2196F3'
+                  }
+                ]} />
+              </View>
+              {dailyWaterIntake >= currentDayData.targets.waterIntakeLiters && (
+                <View style={styles.heroMetricBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color="#4CAF50" />
+                  <Text style={styles.heroMetricBadgeText}>Completado</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* 2. PLAN DEL DÍA - Colapsable */}
+      {currentDayData && (
+        <TouchableOpacity
+          style={styles.todayCard}
+          onPress={() => setIsPlanExpanded(!isPlanExpanded)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.todayCardHeader}>
+            <View>
+              <Text style={styles.todayTitle}>📅 Plan del Día {currentDayData.day}</Text>
+              <Text style={styles.todayDate}>
+                {new Date(currentDayData.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </Text>
+            </View>
+            <Ionicons
+              name={isPlanExpanded ? "chevron-up" : "chevron-down"}
+              size={24}
+              color={COLORS.secondary}
+            />
+          </View>
+
+          {/* Vista compacta - siempre visible */}
+          {!isPlanExpanded && (
+            <View style={styles.todayCompactView}>
+              <View style={styles.todayTargetsRow}>
+                <View style={styles.todayCompactItem}>
+                  <Text style={styles.todayCompactIcon}>🎯</Text>
+                  <Text style={styles.todayCompactValue}>{currentDayData.targets.weightKg} kg</Text>
+                </View>
+                <View style={styles.todayCompactItem}>
+                  <Text style={styles.todayCompactIcon}>🔥</Text>
+                  <Text style={styles.todayCompactValue}>{currentDayData.targets.caloriesIntake} cal</Text>
+                </View>
+                {currentDayData.targets.cardioMinutes > 0 && (
+                  <View style={styles.todayCompactItem}>
+                    <Text style={styles.todayCompactIcon}>🏃</Text>
+                    <Text style={styles.todayCompactValue}>{currentDayData.targets.cardioMinutes} min</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.todayCompactHint}>Toca para ver detalles</Text>
             </View>
           )}
 
-          <View style={styles.todayRecommendations}>
-            <Text style={styles.todayRecommendationsTitle}>Plan del Día</Text>
-            <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
-            <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.hydrationNote}</Text>
-          </View>
-        </View>
+          {/* Vista expandida */}
+          {isPlanExpanded && (
+            <View style={styles.todayExpandedView}>
+              <View style={styles.todayTargetsGrid}>
+                <View style={styles.todayTargetItem}>
+                  <Text style={styles.todayTargetIcon}>🎯</Text>
+                  <Text style={styles.todayTargetLabel}>Peso Objetivo</Text>
+                  <Text style={styles.todayTargetValue}>{currentDayData.targets.weightKg} kg</Text>
+                </View>
+                <View style={styles.todayTargetItem}>
+                  <Text style={styles.todayTargetIcon}>🔥</Text>
+                  <Text style={styles.todayTargetLabel}>Calorías</Text>
+                  <Text style={styles.todayTargetValue}>{currentDayData.targets.caloriesIntake}</Text>
+                </View>
+                <View style={styles.todayTargetItem}>
+                  <Text style={styles.todayTargetIcon}>💧</Text>
+                  <Text style={styles.todayTargetLabel}>Agua</Text>
+                  <Text style={styles.todayTargetValue}>{currentDayData.targets.waterIntakeLiters}L</Text>
+                </View>
+              </View>
+
+              {/* Macros */}
+              {currentDayData.targets.macros && (
+                <View style={styles.todayMacrosSection}>
+                  <Text style={styles.todayMacrosTitle}>Macronutrientes</Text>
+                  <View style={styles.todayMacrosRow}>
+                    <View style={styles.todayMacroItem}>
+                      <Text style={styles.todayMacroLabel}>Proteína</Text>
+                      <Text style={styles.todayMacroValue}>
+                        {Math.round(currentDayData.targets.proteinGrams || currentDayData.targets.protein_grams || currentDayData.targets.macros?.proteinGrams || 0)}g
+                      </Text>
+                    </View>
+                    <View style={styles.todayMacroItem}>
+                      <Text style={styles.todayMacroLabel}>Carbos</Text>
+                      <Text style={styles.todayMacroValue}>
+                        {Math.round(currentDayData.targets.carbsGrams || currentDayData.targets.carbs_grams || currentDayData.targets.macros?.carbsGrams || 0)}g
+                      </Text>
+                    </View>
+                    <View style={styles.todayMacroItem}>
+                      <Text style={styles.todayMacroLabel}>Grasas</Text>
+                      <Text style={styles.todayMacroValue}>
+                        {Math.round(currentDayData.targets.fatsGrams || currentDayData.targets.fats_grams || currentDayData.targets.macros?.fatsGrams || 0)}g
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {currentDayData.targets.cardioMinutes > 0 && (
+                <View style={styles.todayCardioSection}>
+                  <Text style={styles.todayCardioText}>
+                    🏃 Cardio: {currentDayData.targets.cardioMinutes} min
+                    {currentDayData.targets.saunaSuitRequired && ' 🧥 (con traje sauna)'}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.todayRecommendations}>
+                <Text style={styles.todayRecommendationsTitle}>Recomendaciones del Día</Text>
+                <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
+                <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.hydrationNote}</Text>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
       )}
 
       {dashboardData && !currentDayData && (
@@ -828,9 +922,15 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: COLORS.secondary,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 5,
+    fontWeight: '500',
   },
   activeWeightCutBar: {
     backgroundColor: COLORS.accent,
@@ -1423,6 +1523,238 @@ const styles = StyleSheet.create({
   reminderButtonSecondaryText: {
     color: COLORS.textSecondary,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Water Progress Card Styles
+  waterProgressCard: {
+    backgroundColor: COLORS.accent,
+    marginHorizontal: 20,
+    marginBottom: 15,
+    borderRadius: 15,
+    padding: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+  },
+  waterProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  waterProgressInfo: {
+    flex: 1,
+  },
+  waterProgressLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  waterProgressValues: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  waterProgressCurrent: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+  },
+  waterProgressTarget: {
+    fontSize: 18,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  waterProgressButton: {
+    marginLeft: 15,
+  },
+  waterProgressBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  waterProgressBarBackground: {
+    flex: 1,
+    height: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  waterProgressBarFill: {
+    height: '100%',
+    borderRadius: 6,
+    minWidth: 4,
+  },
+  waterProgressPercent: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    minWidth: 45,
+  },
+  waterProgressSuccess: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.primary,
+    gap: 8,
+  },
+  waterProgressSuccessText: {
+    fontSize: 13,
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+  // Collapsible Plan Styles
+  todayCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  todayCompactView: {
+    marginTop: 8,
+  },
+  todayTargetsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  todayCompactItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  todayCompactIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+  },
+  todayCompactValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  todayCompactHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  todayExpandedView: {
+    marginTop: 8,
+  },
+  todayMacrosSection: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  todayMacrosTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginBottom: 12,
+  },
+  todayMacrosRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  todayMacroItem: {
+    alignItems: 'center',
+  },
+  todayMacroLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  todayMacroValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  // Hero Metrics Section - F-Pattern Design
+  heroMetricsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  heroMetricsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 15,
+  },
+  heroMetricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+  },
+  heroMetricCard: {
+    flex: 1,
+    marginHorizontal: 6,
+    marginBottom: 12,
+    backgroundColor: COLORS.accent,
+    borderRadius: 16,
+    padding: 16,
+    minHeight: 170,
+    maxWidth: '48%',
+  },
+  heroMetricIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  heroMetricLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  heroMetricValues: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 6,
+  },
+  heroMetricCurrent: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  heroMetricUnit: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  heroMetricTarget: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+  },
+  heroMetricProgress: {
+    height: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  heroMetricProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+    minWidth: 2,
+  },
+  heroMetricBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  heroMetricBadgeText: {
+    fontSize: 10,
+    color: '#4CAF50',
     fontWeight: '600',
   },
 });
