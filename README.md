@@ -146,12 +146,6 @@ src/
 - **Figma** para diseño y prototipos
 - **WhatsApp** para comunicación del equipo
 
-### Definición de Done
-- Código revisado por al menos un compañero
-- Tests unitarios implementados
-- Funcionalidad probada en dispositivo físico
-- Documentación actualizada
-
 ---
 
 ## Equipo de Desarrollo
