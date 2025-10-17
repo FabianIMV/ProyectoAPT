@@ -12,6 +12,7 @@ import {
   FlatList
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/colors';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,12 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showSportModal, setShowSportModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
+
+  // Estados para secciones colapsables
+  const [isBasicInfoExpanded, setIsBasicInfoExpanded] = useState(true);
+  const [isSportInfoExpanded, setIsSportInfoExpanded] = useState(false);
+  const [isTrainingExpanded, setIsTrainingExpanded] = useState(false);
+  const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
 
   // Cargar perfil del usuario al montar el componente
   useEffect(() => {
@@ -65,6 +72,39 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         setIsLoading(false);
       }
     }
+  };
+
+  // Función simple para clasificar tipo de corte
+  const getWeightCutType = () => {
+    if (!formData.targetWeightKg || !formData.daysToCut) {
+      return { type: '-', color: COLORS.textSecondary };
+    }
+
+    const weightToLose = parseFloat(userProfile.weight) - parseFloat(formData.targetWeightKg);
+    const days = parseInt(formData.daysToCut);
+    const kgPerDay = weightToLose / days;
+
+    // Clasificación simple basada en kg/día
+    if (kgPerDay <= 0.5) {
+      return { type: 'Gradual', color: '#4CAF50' }; // Verde
+    } else if (kgPerDay <= 1.0) {
+      return { type: 'Moderado', color: '#FF9800' }; // Naranja
+    } else {
+      return { type: 'Rápido', color: '#FF5722' }; // Rojo
+    }
+  };
+
+  const calculateWeightDifference = () => {
+    if (!userProfile || !userProfile.weight || !formData.targetWeightKg) {
+      return { kg: '-', percent: '' };
+    }
+
+    const current = parseFloat(userProfile.weight);
+    const target = parseFloat(formData.targetWeightKg);
+    const diff = (current - target).toFixed(1);
+    const percent = ((diff / current) * 100).toFixed(1);
+
+    return { kg: diff, percent: `${percent}%` };
   };
 
   const validateForm = () => {
@@ -286,18 +326,19 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         <Text style={styles.title}>Calculadora de Corte de Peso</Text>
         <Text style={styles.subtitle}>Genera un plan personalizado con IA</Text>
 
-        {/* Basic Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información Básica</Text>
+        {/* === PASO 1: OBJETIVO DEL CORTE (ALWAYS VISIBLE) === */}
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>📊 Paso 1: Define tu Objetivo</Text>
 
-          {/* Mostrar peso actual del perfil */}
+          {/* Peso Actual (Read-only context) */}
           {userProfile && userProfile.weight && (
-            <View style={styles.infoContainer}>
-              <Text style={styles.infoLabel}>Tu Peso Actual</Text>
-              <Text style={styles.infoValue}>{userProfile.weight} kg</Text>
+            <View style={styles.currentWeightBanner}>
+              <Text style={styles.currentWeightLabel}>Tu Peso Actual</Text>
+              <Text style={styles.currentWeightValue}>{userProfile.weight} kg</Text>
             </View>
           )}
 
+          {/* Inputs principales */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Peso Objetivo (kg) *</Text>
             <TextInput
@@ -325,129 +366,206 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Sport Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información Deportiva</Text>
+        {/* === PREVIEW SIMPLE (Solo aparece con datos válidos) === */}
+        {formData.targetWeightKg && formData.daysToCut && !errors.targetWeightKg && !errors.daysToCut && (
+          <View style={styles.smartPreviewSection}>
+            <Text style={styles.smartPreviewTitle}>💡 Preview de tu Plan</Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Nivel de Experiencia *</Text>
-            {Platform.OS === 'ios' ? (
-              <IOSSelector
-                options={experienceOptions}
-                selectedValue={formData.experienceLevel}
-                onSelect={(value) => handleInputChange('experienceLevel', value)}
-                placeholder="Seleccionar nivel"
-                modalVisible={showExperienceModal}
-                setModalVisible={setShowExperienceModal}
-              />
-            ) : (
-              <View style={styles.pickerContainer}>
-                <Picker
+            {/* Comparación visual simple */}
+            <View style={styles.comparisonRow}>
+              <View style={styles.comparisonItem}>
+                <Text style={styles.comparisonValue}>{userProfile.weight}</Text>
+                <Text style={styles.comparisonLabel}>Actual</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={24} color={COLORS.secondary} />
+              <View style={styles.comparisonItem}>
+                <Text style={styles.comparisonValue}>{formData.targetWeightKg}</Text>
+                <Text style={styles.comparisonLabel}>Objetivo</Text>
+              </View>
+              <View style={styles.comparisonDiff}>
+                <Text style={styles.comparisonDiffValue}>-{calculateWeightDifference().kg}kg</Text>
+                <Text style={styles.comparisonDiffPercent}>{calculateWeightDifference().percent}</Text>
+              </View>
+            </View>
+
+            {/* Info simple */}
+            <View style={styles.simpleInfoRow}>
+              <View style={styles.simpleInfoItem}>
+                <Text style={styles.simpleInfoLabel}>En {formData.daysToCut} días</Text>
+                <Text style={[styles.simpleInfoValue, { color: getWeightCutType().color }]}>
+                  Corte {getWeightCutType().type}
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.aiNote}>
+              La IA analizará la viabilidad y generará un plan detallado personalizado.
+            </Text>
+          </View>
+        )}
+
+        {/* === SPORT INFORMATION SECTION (Collapsible) === */}
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => setIsSportInfoExpanded(!isSportInfoExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sectionHeaderTitle}>🥊 Información Deportiva</Text>
+          <Ionicons
+            name={isSportInfoExpanded ? "chevron-up" : "chevron-down"}
+            size={24}
+            color={COLORS.secondary}
+          />
+        </TouchableOpacity>
+
+        {isSportInfoExpanded && (
+          <View style={styles.section}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Nivel de Experiencia *</Text>
+              {Platform.OS === 'ios' ? (
+                <IOSSelector
+                  options={experienceOptions}
                   selectedValue={formData.experienceLevel}
-                  style={styles.picker}
-                  onValueChange={(value) => handleInputChange('experienceLevel', value)}
-                  dropdownIconColor={COLORS.secondary}
-                >
-                  <Picker.Item label="Principiante" value="principiante" />
-                  <Picker.Item label="Amateur" value="amateur" />
-                  <Picker.Item label="Profesional" value="profesional" />
-                </Picker>
-              </View>
-            )}
-          </View>
+                  onSelect={(value) => handleInputChange('experienceLevel', value)}
+                  placeholder="Seleccionar nivel"
+                  modalVisible={showExperienceModal}
+                  setModalVisible={setShowExperienceModal}
+                />
+              ) : (
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={formData.experienceLevel}
+                    style={styles.picker}
+                    onValueChange={(value) => handleInputChange('experienceLevel', value)}
+                    dropdownIconColor={COLORS.secondary}
+                  >
+                    <Picker.Item label="Principiante" value="principiante" />
+                    <Picker.Item label="Amateur" value="amateur" />
+                    <Picker.Item label="Profesional" value="profesional" />
+                  </Picker>
+                </View>
+              )}
+            </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Deporte de Combate *</Text>
-            {Platform.OS === 'ios' ? (
-              <IOSSelector
-                options={sportOptions}
-                selectedValue={formData.combatSport}
-                onSelect={(value) => handleInputChange('combatSport', value)}
-                placeholder="Seleccionar deporte"
-                modalVisible={showSportModal}
-                setModalVisible={setShowSportModal}
-              />
-            ) : (
-              <View style={styles.pickerContainer}>
-                <Picker
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Deporte de Combate *</Text>
+              {Platform.OS === 'ios' ? (
+                <IOSSelector
+                  options={sportOptions}
                   selectedValue={formData.combatSport}
-                  style={styles.picker}
-                  onValueChange={(value) => handleInputChange('combatSport', value)}
-                  dropdownIconColor={COLORS.secondary}
-                >
-                  <Picker.Item label="Boxeo" value="boxeo" />
-                  <Picker.Item label="MMA" value="mma" />
-                  <Picker.Item label="Muay Thai" value="muay-thai" />
-                  <Picker.Item label="Judo" value="judo" />
-                  <Picker.Item label="BJJ" value="bjj" />
-                  <Picker.Item label="Kickboxing" value="kickboxing" />
-                </Picker>
-              </View>
-            )}
+                  onSelect={(value) => handleInputChange('combatSport', value)}
+                  placeholder="Seleccionar deporte"
+                  modalVisible={showSportModal}
+                  setModalVisible={setShowSportModal}
+                />
+              ) : (
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={formData.combatSport}
+                    style={styles.picker}
+                    onValueChange={(value) => handleInputChange('combatSport', value)}
+                    dropdownIconColor={COLORS.secondary}
+                  >
+                    <Picker.Item label="Boxeo" value="boxeo" />
+                    <Picker.Item label="MMA" value="mma" />
+                    <Picker.Item label="Muay Thai" value="muay-thai" />
+                    <Picker.Item label="Judo" value="judo" />
+                    <Picker.Item label="BJJ" value="bjj" />
+                    <Picker.Item label="Kickboxing" value="kickboxing" />
+                  </Picker>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* Training Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Entrenamiento</Text>
+        {/* === TRAINING INFORMATION SECTION (Collapsible) === */}
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => setIsTrainingExpanded(!isTrainingExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sectionHeaderTitle}>💪 Entrenamiento</Text>
+          <Ionicons
+            name={isTrainingExpanded ? "chevron-up" : "chevron-down"}
+            size={24}
+            color={COLORS.secondary}
+          />
+        </TouchableOpacity>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Sesiones por Semana (1-7) *</Text>
-            <TextInput
-              style={[styles.input, errors.trainingSessionsPerWeek && styles.inputError]}
-              placeholder="Ej: 5"
-              placeholderTextColor={COLORS.textSecondary}
-              value={formData.trainingSessionsPerWeek}
-              onChangeText={(value) => handleInputChange('trainingSessionsPerWeek', value)}
-              keyboardType="numeric"
-            />
-            {errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Sesiones por Día (1-3) *</Text>
-            <TextInput
-              style={[styles.input, errors.trainingSessionsPerDay && styles.inputError]}
-              placeholder="Ej: 1"
-              placeholderTextColor={COLORS.textSecondary}
-              value={formData.trainingSessionsPerDay}
-              onChangeText={(value) => handleInputChange('trainingSessionsPerDay', value)}
-              keyboardType="numeric"
-            />
-            {errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
-          </View>
-        </View>
-
-        {/* Advanced Configuration */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuración Avanzada</Text>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Modelo de IA</Text>
-            {Platform.OS === 'ios' ? (
-              <IOSSelector
-                options={modelOptions}
-                selectedValue={formData.model}
-                onSelect={(value) => handleInputChange('model', value)}
-                placeholder="Seleccionar modelo"
-                modalVisible={showModelModal}
-                setModalVisible={setShowModelModal}
+        {isTrainingExpanded && (
+          <View style={styles.section}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Sesiones por Semana (1-7) *</Text>
+              <TextInput
+                style={[styles.input, errors.trainingSessionsPerWeek && styles.inputError]}
+                placeholder="Ej: 5"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.trainingSessionsPerWeek}
+                onChangeText={(value) => handleInputChange('trainingSessionsPerWeek', value)}
+                keyboardType="numeric"
               />
-            ) : (
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={formData.model}
-                  style={styles.picker}
-                  onValueChange={(value) => handleInputChange('model', value)}
-                  dropdownIconColor={COLORS.secondary}
-                >
-                  <Picker.Item label="Gemini 2.5 Flash (Rápido)" value="gemini-2.5-flash" />
-                  <Picker.Item label="Gemini 2.5 Pro (Detallado)" value="gemini-2.5-pro" />
-                </Picker>
-              </View>
-            )}
+              {errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Sesiones por Día (1-3) *</Text>
+              <TextInput
+                style={[styles.input, errors.trainingSessionsPerDay && styles.inputError]}
+                placeholder="Ej: 1"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.trainingSessionsPerDay}
+                onChangeText={(value) => handleInputChange('trainingSessionsPerDay', value)}
+                keyboardType="numeric"
+              />
+              {errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* === ADVANCED CONFIGURATION SECTION (Collapsible) === */}
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sectionHeaderTitle}>⚙️ Configuración Avanzada</Text>
+          <Ionicons
+            name={isAdvancedExpanded ? "chevron-up" : "chevron-down"}
+            size={24}
+            color={COLORS.secondary}
+          />
+        </TouchableOpacity>
+
+        {isAdvancedExpanded && (
+          <View style={styles.section}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Modelo de IA</Text>
+              {Platform.OS === 'ios' ? (
+                <IOSSelector
+                  options={modelOptions}
+                  selectedValue={formData.model}
+                  onSelect={(value) => handleInputChange('model', value)}
+                  placeholder="Seleccionar modelo"
+                  modalVisible={showModelModal}
+                  setModalVisible={setShowModelModal}
+                />
+              ) : (
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={formData.model}
+                    style={styles.picker}
+                    onValueChange={(value) => handleInputChange('model', value)}
+                    dropdownIconColor={COLORS.secondary}
+                  >
+                    <Picker.Item label="Gemini 2.5 Flash (Rápido)" value="gemini-2.5-flash" />
+                    <Picker.Item label="Gemini 2.5 Pro (Detallado)" value="gemini-2.5-pro" />
+                  </Picker>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         <Text style={styles.requiredNote}>* Campos obligatorios</Text>
 
@@ -621,6 +739,136 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 14,
     textAlign: 'center',
+  },
+  // === STEP CARD STYLES (Input-First Pattern) ===
+  stepCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: COLORS.secondary + '40',
+  },
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginBottom: 16,
+  },
+  currentWeightBanner: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  currentWeightLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  currentWeightValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+  },
+  // === SMART PREVIEW SECTION STYLES (Conditional) ===
+  smartPreviewSection: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#4CAF50' + '30',
+  },
+  smartPreviewTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 16,
+  },
+  comparisonItem: {
+    alignItems: 'center',
+  },
+  comparisonValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginBottom: 4,
+  },
+  comparisonLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  comparisonDiff: {
+    backgroundColor: COLORS.secondary + '20',
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+  },
+  comparisonDiffValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+  },
+  comparisonDiffPercent: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  simpleInfoRow: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  simpleInfoItem: {
+    alignItems: 'center',
+  },
+  simpleInfoLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  simpleInfoValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  aiNote: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  // === COLLAPSIBLE SECTION HEADER STYLES ===
+  sectionHeader: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 15,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.secondary + '20',
+  },
+  sectionHeaderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
   },
   // iOS-specific selector styles
   iosSelectorButton: {
