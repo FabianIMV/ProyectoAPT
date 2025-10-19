@@ -214,7 +214,7 @@ export default function NutritionTrackingScreen({ navigation }) {
       {/* Meals List */}
       <View style={styles.mealsSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Comidas Registradas</Text>
+          <Text style={styles.sectionTitle}>Registrar comida</Text>
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => navigation.navigate('Scanner')}
@@ -223,46 +223,7 @@ export default function NutritionTrackingScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {!dayProgress || totalCalories === 0 ? (
-          <View style={styles.emptyMealsCard}>
-            <Text style={styles.emptyMealsIcon}>🍽️</Text>
-            <Text style={styles.emptyMealsText}>No hay comidas registradas</Text>
-            <Text style={styles.emptyMealsSubtext}>Usa el botón + para analizar con cámara</Text>
-          </View>
-        ) : (
-          <View style={styles.mealCard}>
-            <View style={styles.mealHeader}>
-              <View>
-                <Text style={styles.mealName}>Registro del Día</Text>
-                <Text style={styles.mealTime}>
-                  {dayProgress?.notes || 'Ver detalle en Dashboard'}
-                </Text>
-              </View>
-              <Text style={styles.mealCalories}>{totalCalories} cal</Text>
-            </View>
-
-            <View style={styles.mealMacros}>
-              <View style={styles.mealMacroItem}>
-                <Text style={styles.mealMacroValue}>P: {totalProtein}g</Text>
-              </View>
-              <View style={styles.mealMacroItem}>
-                <Text style={styles.mealMacroValue}>C: {totalCarbs}g</Text>
-              </View>
-              <View style={styles.mealMacroItem}>
-                <Text style={styles.mealMacroValue}>G: {totalFats}g</Text>
-              </View>
-            </View>
-
-            {(dayProgress?.complianceScore !== null || dayProgress?.compliance_score !== null) && (
-              <View style={styles.complianceBox}>
-                <Text style={styles.complianceLabel}>Cumplimiento</Text>
-                <Text style={styles.complianceValue}>
-                  {dayProgress?.complianceScore || dayProgress?.compliance_score}%
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
+        
       </View>
 
       <View style={styles.bottomSpacing} />
