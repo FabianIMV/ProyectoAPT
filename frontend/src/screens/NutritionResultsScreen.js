@@ -89,20 +89,13 @@ export default function NutritionResultsScreen({ route, navigation }) {
       );
 
       if (result.success) {
-        Alert.alert(
-          'Guardado',
-          `${mealData.mealName} registrado en tu progreso del día ${currentDay}`,
-          [
-            {
-              text: 'Ver Dashboard',
-              onPress: () => navigation.navigate('Dashboard'),
-            },
-            {
-              text: 'OK',
-              style: 'cancel',
-            },
-          ]
-        );
+        // Navegar al Dashboard automáticamente después de guardar
+        navigation.navigate('Main', {
+          screen: 'Dashboard',
+          params: {
+            screen: 'DashboardHome'
+          }
+        });
       } else {
         Alert.alert('Error', result.error || 'No se pudo guardar el progreso');
       }

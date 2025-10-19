@@ -706,31 +706,7 @@ export default function DashboardScreen({ navigation }) {
               </View>
 
               {/* Macros */}
-              {currentDayData.targets.macros && (
-                <View style={styles.todayMacrosSection}>
-                  <Text style={styles.todayMacrosTitle}>Macronutrientes</Text>
-                  <View style={styles.todayMacrosRow}>
-                    <View style={styles.todayMacroItem}>
-                      <Text style={styles.todayMacroLabel}>Proteína</Text>
-                      <Text style={styles.todayMacroValue}>
-                        {Math.round(currentDayData.targets.proteinGrams || currentDayData.targets.protein_grams || currentDayData.targets.macros?.proteinGrams || 0)}g
-                      </Text>
-                    </View>
-                    <View style={styles.todayMacroItem}>
-                      <Text style={styles.todayMacroLabel}>Carbos</Text>
-                      <Text style={styles.todayMacroValue}>
-                        {Math.round(currentDayData.targets.carbsGrams || currentDayData.targets.carbs_grams || currentDayData.targets.macros?.carbsGrams || 0)}g
-                      </Text>
-                    </View>
-                    <View style={styles.todayMacroItem}>
-                      <Text style={styles.todayMacroLabel}>Grasas</Text>
-                      <Text style={styles.todayMacroValue}>
-                        {Math.round(currentDayData.targets.fatsGrams || currentDayData.targets.fats_grams || currentDayData.targets.macros?.fatsGrams || 0)}g
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
+             
 
               {currentDayData.targets.cardioMinutes > 0 && (
                 <View style={styles.todayCardioSection}>
