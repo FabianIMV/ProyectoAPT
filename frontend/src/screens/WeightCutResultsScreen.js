@@ -13,6 +13,7 @@ import {
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { WEIGHT_CUT_API } from '../config/api';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const { width } = Dimensions.get('window');
 
@@ -23,6 +24,8 @@ export default function WeightCutResultsScreen({ route, navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', content: '' });
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
+  const [timelineProgress, setTimelineProgress] = useState('');
 
   const handleNewAnalysis = () => {
     navigation.goBack();
@@ -37,23 +40,92 @@ export default function WeightCutResultsScreen({ route, navigation }) {
       return;
     }
 
+    // Validar que tengamos las fechas necesarias
+    if (!formData.startDate || !formData.weighInDate) {
+      Alert.alert(
+        'Error',
+        'Faltan las fechas del plan. Por favor crea un nuevo plan desde la calculadora.'
+      );
+      return;
+    }
+
+    // Calcular tiempo estimado de generación
+    const estimatedSeconds = Math.max(90, parseInt(formData.daysToCut) * 15);
+
+    // Confirmar con el usuario
+    Alert.alert(
+      'Guardar y Generar Timeline',
+      `Se guardará tu plan y se generará tu timeline diario personalizado.\n\n⏱️ Tiempo estimado: ${estimatedSeconds}s\n\n¿Continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          onPress: () => executeFullSave()
+        }
+      ]
+    );
+  };
+
+  const executeFullSave = async () => {
     setIsSaving(true);
+    setTimelineProgress('Guardando plan...');
 
     try {
+      // PASO 1: Guardar el plan
+      setTimelineProgress('Guardando plan de corte...');
+
+      // Construir analysis_request con TODAS las fechas en el JSON
+      const analysisRequest = {
+        currentWeightKg: parseFloat(formData.currentWeightKg),
+        targetWeightKg: parseFloat(formData.targetWeightKg),
+        userHeight: parseFloat(formData.userHeight),
+        userAge: parseInt(formData.userAge),
+        experienceLevel: formData.experienceLevel,
+        combatSport: formData.combatSport,
+        trainingSessionsPerWeek: parseInt(formData.trainingSessionsPerWeek),
+        trainingSessionsPerDay: parseInt(formData.trainingSessionsPerDay),
+        model: formData.model
+      };
+
+      // Agregar fechas al analysis_request (van en el JSON, NO en columnas separadas)
+      // IMPORTANTE: Convertir a string si es necesario
+      if (formData.startDate) {
+        // Si es un objeto Date, convertir a string YYYY-MM-DD
+        if (typeof formData.startDate === 'string') {
+          analysisRequest.startDate = formData.startDate;
+        } else {
+          const year = formData.startDate.getFullYear();
+          const month = String(formData.startDate.getMonth() + 1).padStart(2, '0');
+          const day = String(formData.startDate.getDate()).padStart(2, '0');
+          analysisRequest.startDate = `${year}-${month}-${day}`;
+        }
+      }
+
+      if (formData.weighInDate) {
+        // Si es un objeto Date, convertir a string YYYY-MM-DD
+        if (typeof formData.weighInDate === 'string') {
+          analysisRequest.weighInDate = formData.weighInDate;
+        } else {
+          const year = formData.weighInDate.getFullYear();
+          const month = String(formData.weighInDate.getMonth() + 1).padStart(2, '0');
+          const day = String(formData.weighInDate.getDate()).padStart(2, '0');
+          analysisRequest.weighInDate = `${year}-${month}-${day}`;
+        }
+      }
+
+      // Agregar hora del pesaje si existe
+      if (formData.weighInTime) {
+        analysisRequest.weighInTime = formData.weighInTime;
+      }
+
+      // daysToCut se calcula automáticamente en el backend si hay fechas
+      if (formData.daysToCut) {
+        analysisRequest.daysToCut = parseInt(formData.daysToCut);
+      }
+
       const payload = {
         userId: userId,
-        analysisRequest: {
-          currentWeightKg: parseFloat(formData.currentWeightKg),
-          targetWeightKg: parseFloat(formData.targetWeightKg),
-          daysToCut: parseInt(formData.daysToCut),
-          userHeight: parseFloat(formData.userHeight),
-          userAge: parseInt(formData.userAge),
-          experienceLevel: formData.experienceLevel,
-          combatSport: formData.combatSport,
-          trainingSessionsPerWeek: parseInt(formData.trainingSessionsPerWeek),
-          trainingSessionsPerDay: parseInt(formData.trainingSessionsPerDay),
-          model: formData.model
-        },
+        analysisRequest: analysisRequest,
         analysisResponse: {
           riskAnalysis: analysisResult.riskAnalysis,
           actionPlan: analysisResult.actionPlan,
@@ -64,7 +136,7 @@ export default function WeightCutResultsScreen({ route, navigation }) {
 
       console.log('💾 Guardando plan de corte de peso:', payload);
 
-      const response = await fetch(WEIGHT_CUT_API.store, {
+      const storeResponse = await fetch(WEIGHT_CUT_API.store, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -72,33 +144,98 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorData}`);
+      if (!storeResponse.ok) {
+        const errorData = await storeResponse.text();
+        throw new Error(`HTTP ${storeResponse.status}: ${errorData}`);
       }
 
-      const result = await response.json();
-      console.log('✅ Plan guardado exitosamente:', result);
+      const storeResult = await storeResponse.json();
+      console.log('✅ Plan guardado exitosamente:', storeResult);
 
-      Alert.alert(
-        '✅ Plan Guardado',
-        'Tu plan de corte de peso ha sido guardado exitosamente y está ahora activo.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('Main')
-          }
-        ]
-      );
+      // PASO 2: Generar Timeline Automáticamente
+      setIsSaving(false);
+      setIsGeneratingTimeline(true);
+      setTimelineProgress(`Generando timeline de ${formData.daysToCut} días...`);
+
+      // Construir payload del timeline
+      // IMPORTANTE: NO enviar weighInTime aquí - el backend lo lee del plan guardado
+      const timelinePayload = {
+        userId: userId,
+      };
+
+      // Enviar startDate solo si existe (sino backend usa la fecha del analysis_request)
+      if (formData.startDate) {
+        // Convertir a string si es Date
+        if (typeof formData.startDate === 'string') {
+          timelinePayload.startDate = formData.startDate;
+        } else {
+          const year = formData.startDate.getFullYear();
+          const month = String(formData.startDate.getMonth() + 1).padStart(2, '0');
+          const day = String(formData.startDate.getDate()).padStart(2, '0');
+          timelinePayload.startDate = `${year}-${month}-${day}`;
+        }
+      }
+
+      // Enviar timezone (opcional)
+      timelinePayload.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santiago';
+
+      console.log('📅 Generando timeline:', timelinePayload);
+
+      const timelineResponse = await fetch(WEIGHT_CUT_API.activateTimeline, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(timelinePayload),
+      });
+
+      const timelineResult = await timelineResponse.json();
+
+      if (timelineResponse.ok && timelineResult.success) {
+        console.log('✅ Timeline generado exitosamente');
+
+        // Mostrar advertencias si las hay
+        let message = `Tu plan de corte de peso y timeline diario han sido creados exitosamente.`;
+
+        if (timelineResult.warning) {
+          message += `\n\n⚠️ ${timelineResult.warning}`;
+        }
+
+        if (timelineResult.adjustedDays && timelineResult.adjustedDays !== parseInt(formData.daysToCut)) {
+          message += `\n\n📊 Plan ajustado a ${timelineResult.adjustedDays} días.`;
+        }
+
+        Alert.alert(
+          '✅ Todo Listo',
+          message,
+          [
+            {
+              text: 'Ver Dashboard',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Main' }],
+                });
+              }
+            }
+          ]
+        );
+      } else if (timelineResponse.status === 404) {
+        throw new Error('No se encontró el plan guardado. Por favor intenta nuevamente.');
+      } else {
+        throw new Error(timelineResult.message || 'Error al generar timeline');
+      }
 
     } catch (error) {
-      console.error('❌ Error guardando plan de corte:', error);
+      console.error('❌ Error en el proceso:', error);
       Alert.alert(
         'Error',
-        'No se pudo guardar el plan de corte de peso. Por favor, intenta nuevamente.'
+        error.message || 'No se pudo completar el proceso. Por favor, intenta nuevamente.'
       );
     } finally {
       setIsSaving(false);
+      setIsGeneratingTimeline(false);
+      setTimelineProgress('');
     }
   };
 
@@ -367,6 +504,17 @@ export default function WeightCutResultsScreen({ route, navigation }) {
     { key: 'recommendations', label: 'Consejos' },
   ];
 
+  // Mostrar pantalla de carga durante la generación del timeline
+  if (isGeneratingTimeline) {
+    return (
+      <LoadingSpinner
+        useDynamicMessages={true}
+        subtitle={timelineProgress}
+        messageInterval={3000}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Tab Navigation */}
@@ -405,9 +553,17 @@ export default function WeightCutResultsScreen({ route, navigation }) {
             disabled={isSaving}
           >
             {isSaving ? (
-              <ActivityIndicator color={COLORS.secondary} />
+              <View style={styles.savingContainer}>
+                <ActivityIndicator color={COLORS.secondary} />
+                <Text style={styles.savingText}>{timelineProgress}</Text>
+              </View>
             ) : (
-              <Text style={styles.addToPlanButtonText}>Agregar al Plan de Corte</Text>
+              <>
+                <Text style={styles.addToPlanButtonText}>Guardar y Generar Timeline</Text>
+                <Text style={styles.addToPlanButtonSubtext}>
+                  Se creará tu plan diario personalizado
+                </Text>
+              </>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.newAnalysisButton} onPress={handleNewAnalysis}>
@@ -728,6 +884,22 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  addToPlanButtonSubtext: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  savingText: {
+    color: COLORS.secondary,
+    fontSize: 14,
+    marginLeft: 10,
   },
   newAnalysisButton: {
     backgroundColor: COLORS.secondary,

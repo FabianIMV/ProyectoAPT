@@ -13,6 +13,7 @@ import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { addMealProgress } from '../services/progressService';
 import { WEIGHT_CUT_API } from '../config/api';
+import { calculateCurrentDayNumber } from '../utils/dateUtils';
 
 export default function NutritionResultsScreen({ route, navigation }) {
   const { analysisResult, selectedImage } = route.params;
@@ -21,20 +22,6 @@ export default function NutritionResultsScreen({ route, navigation }) {
 
   const handleNewAnalysis = () => {
     navigation.goBack();
-  };
-
-  const calculateCurrentDay = (startDate, totalDays) => {
-    const start = new Date(startDate);
-    const today = new Date();
-    start.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    const dayIndex = Math.floor((today - start) / (1000 * 60 * 60 * 24));
-
-    if (dayIndex < 0) return null;
-    if (dayIndex >= totalDays) return 'completed';
-
-    return dayIndex + 1; // 1-indexed
   };
 
   const handleSaveToProgress = async () => {
@@ -65,7 +52,7 @@ export default function NutritionResultsScreen({ route, navigation }) {
         return;
       }
 
-      const currentDay = calculateCurrentDay(timeline.start_date, timeline.total_days);
+      const currentDay = calculateCurrentDayNumber(timeline.start_date, timeline.total_days);
 
       if (currentDay === 'completed' || currentDay === null) {
         Alert.alert('Plan Completado', 'Tu plan de corte ha finalizado');
@@ -79,6 +66,9 @@ export default function NutritionResultsScreen({ route, navigation }) {
         carbsGrams: analysisResult.macronutrientes?.carbohidratos || 0,
         fatsGrams: analysisResult.macronutrientes?.grasas || 0,
         mealName: analysisResult.nombre || 'Comida',
+        estimatedWeight: analysisResult.peso_estimado_gramos || null,
+        confidence: analysisResult.confianza_analisis || null,
+        ingredients: analysisResult.ingredientes || null,
       };
 
       const result = await addMealProgress(

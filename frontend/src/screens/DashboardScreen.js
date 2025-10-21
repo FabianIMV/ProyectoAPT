@@ -17,11 +17,12 @@ import { addWaterIntake as addWaterIntakeOld, getDailyWaterIntake } from '../ser
 import { addWaterIntake, getDayProgress, setDailyWeight } from '../services/progressService';
 import WaterIntakeModal from '../components/WaterIntakeModal';
 import WeightInputModal from '../components/WeightInputModal';
+import { calculateCurrentDayIndex, calculateCurrentDayNumber } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 
-export default function DashboardScreen({ navigation }) {
-  const { userId, user } = useAuth();
+export default function DashboardScreen({ navigation, route }) {
+  const { userId, user, preloadedData } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeWeightCut, setActiveWeightCut] = useState(null);
   const [loadingWeightCut, setLoadingWeightCut] = useState(true);
@@ -42,18 +43,39 @@ export default function DashboardScreen({ navigation }) {
   const [showWeightReminder, setShowWeightReminder] = useState(false);
   const [yesterdayProgressData, setYesterdayProgressData] = useState(null);
   const [isPlanExpanded, setIsPlanExpanded] = useState(false);
+  const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
 
   useEffect(() => {
     if (userId && user) {
-      loadDashboardData();
+      loadDashboardData(false); // false = no es refresh manual
     }
   }, [userId, user]);
+
+  // Efecto para usar datos precargados al montar el componente
+  useEffect(() => {
+    if (preloadedData && preloadedData.profile) {
+      console.log('⚡ Usando datos precargados del AuthContext');
+      // Cargar datos instantáneamente desde caché
+      setUserProfile(preloadedData.profile);
+      setActiveWeightCut(preloadedData.activePlan);
+      setActiveTimeline(preloadedData.timeline);
+      setLoadingWeightCut(false);
+      setLoadingTimeline(false);
+
+      // Si hay timeline, configurar needsTimeline
+      if (preloadedData.timeline) {
+        setNeedsTimeline(false);
+      } else if (preloadedData.activePlan) {
+        setNeedsTimeline(true);
+      }
+    }
+  }, [preloadedData]);
 
   // Listener para recargar cuando vuelve de otras pantallas
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       if (userId && user) {
-        loadDashboardData();
+        loadDashboardData(true); // true = recargar desde servidor al volver a la pantalla
       }
     });
 
@@ -122,19 +144,7 @@ export default function DashboardScreen({ navigation }) {
     return null;
   };
 
-  const calculateCurrentDay = (startDate, totalDays) => {
-    const start = new Date(startDate);
-    const today = new Date();
-    start.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    const dayIndex = Math.floor((today - start) / (1000 * 60 * 60 * 24));
-
-    if (dayIndex < 0) return null;
-    if (dayIndex >= totalDays) return 'completed';
-
-    return dayIndex;
-  };
+  // Función deprecada - ahora se usa calculateCurrentDayIndex desde utils/dateUtils
 
   const loadWaterIntake = async () => {
     if (!userId || !timelineId || currentDayNumber === null) {
@@ -159,16 +169,28 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (isManualRefresh = false) => {
     setLoadingWeightCut(true);
     setLoadingTimeline(true);
 
     try {
-      const [profile, activePlan, timeline] = await Promise.all([
-        loadUserProfile(),
-        loadActiveWeightCut(),
-        loadActiveTimeline()
-      ]);
+      let profile, activePlan, timeline;
+
+      // Si tenemos datos precargados y NO es un refresh manual, usarlos instantáneamente
+      if (preloadedData && !isManualRefresh) {
+        console.log('⚡ Usando datos precargados - carga instantánea');
+        profile = preloadedData.profile;
+        activePlan = preloadedData.activePlan;
+        timeline = preloadedData.timeline;
+      } else {
+        // Si es refresh manual o no hay datos precargados, hacer fetch
+        console.log('🔄 Cargando datos desde servidor...');
+        [profile, activePlan, timeline] = await Promise.all([
+          loadUserProfile(),
+          loadActiveWeightCut(),
+          loadActiveTimeline()
+        ]);
+      }
 
       setUserProfile(profile);
       setActiveWeightCut(activePlan);
@@ -182,7 +204,7 @@ export default function DashboardScreen({ navigation }) {
         calculatedTimelineId = timeline.id;
         setTimelineId(calculatedTimelineId);
 
-        const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
+        const dayIndex = calculateCurrentDayIndex(timeline.start_date, timeline.total_days);
         if (dayIndex !== 'completed' && dayIndex !== null && dayIndex >= 0) {
           // dayNumber es 1-indexed, dayIndex es 0-indexed
           calculatedDayNumber = dayIndex + 1;
@@ -236,12 +258,17 @@ export default function DashboardScreen({ navigation }) {
         return;
       }
 
+      // Si hay timeline, asegurar que needsTimeline esté en false
+      if (timeline) {
+        setNeedsTimeline(false);
+      }
+
       if (activePlan && profile) {
         let currentDayInfo = null;
         let phaseData = null;
 
         if (timeline && timeline.timeline_data?.days) {
-          const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
+          const dayIndex = calculateCurrentDayIndex(timeline.start_date, timeline.total_days);
 
           if (dayIndex === 'completed') {
             setDashboardData({ timeRemaining: { isExpired: true } });
@@ -325,8 +352,107 @@ export default function DashboardScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadDashboardData();
+    await loadDashboardData(true); // true = refresh manual, forzar recarga desde servidor
     setRefreshing(false);
+  };
+
+  const handleGenerateTimeline = async () => {
+    if (!userId || !activeWeightCut) {
+      Alert.alert('Error', 'No se encontró un plan activo');
+      return;
+    }
+
+    const daysToCut = activeWeightCut.analysis_request?.daysToCut || 7;
+    const estimatedSeconds = Math.max(90, daysToCut * 15);
+
+    Alert.alert(
+      'Generar Timeline',
+      `Se generará tu plan diario personalizado de ${daysToCut} días.\n\n⏱️ Tiempo estimado: ${estimatedSeconds}s\n\n¿Continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Generar',
+          onPress: () => executeGenerateTimeline()
+        }
+      ]
+    );
+  };
+
+  const executeGenerateTimeline = async () => {
+    setIsGeneratingTimeline(true);
+
+    try {
+      const timelinePayload = {
+        userId: userId,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santiago'
+      };
+
+      console.log('📅 Generando timeline para plan existente:', timelinePayload);
+
+      const response = await fetch(WEIGHT_CUT_API.activateTimeline, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(timelinePayload),
+      });
+
+      // Verificar si la respuesta es JSON válida
+      const contentType = response.headers.get('content-type');
+      let result;
+
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        // Si no es JSON, leer como texto para debuggear
+        const text = await response.text();
+        console.error('❌ Respuesta no es JSON:', text);
+        throw new Error('El servidor no devolvió una respuesta JSON válida. Verifica que el endpoint esté correcto.');
+      }
+
+      if (response.ok && result.success) {
+        console.log('✅ Timeline generado exitosamente');
+
+        let message = 'Tu timeline diario ha sido generado exitosamente.';
+
+        if (result.warning) {
+          message += `\n\n⚠️ ${result.warning}`;
+        }
+
+        if (result.adjustedDays && activeWeightCut.analysis_request?.daysToCut) {
+          const originalDays = activeWeightCut.analysis_request.daysToCut;
+          if (result.adjustedDays !== originalDays) {
+            message += `\n\n📊 Plan ajustado a ${result.adjustedDays} días (original: ${originalDays} días).`;
+          }
+        }
+
+        Alert.alert(
+          '✅ Timeline Generado',
+          message,
+          [
+            {
+              text: 'Ver Dashboard',
+              onPress: () => loadDashboardData()
+            }
+          ]
+        );
+      } else if (response.status === 404) {
+        Alert.alert(
+          'Error',
+          'No se encontró el plan guardado. Por favor crea un nuevo plan.'
+        );
+      } else {
+        throw new Error(result.message || 'Error al generar timeline');
+      }
+    } catch (error) {
+      console.error('❌ Error generando timeline:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo generar el timeline. Por favor intenta nuevamente o crea un nuevo plan.'
+      );
+    } finally {
+      setIsGeneratingTimeline(false);
+    }
   };
 
   const getRiskColor = (riskCode) => {
@@ -484,7 +610,16 @@ export default function DashboardScreen({ navigation }) {
         <Text style={styles.headerTitle}>Avance Diario</Text>
         {currentDayData && currentDayData.date && (
           <Text style={styles.todayDate}>
-            {new Date(currentDayData.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {(() => {
+              // Parsear fecha explícitamente en hora local para evitar problemas de timezone
+              const dateParts = currentDayData.date.split(/[-T]/);
+              const localDate = new Date(
+                parseInt(dateParts[0]),      // year
+                parseInt(dateParts[1]) - 1,  // month (0-indexed)
+                parseInt(dateParts[2])       // day
+              );
+              return localDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+            })()}
           </Text>
         )}
       </View>
@@ -506,25 +641,33 @@ export default function DashboardScreen({ navigation }) {
         </View>
       )}
 
-      {/* Timeline needed */}
+      {/* Timeline needed - Generar timeline del plan existente */}
       {!loadingWeightCut && !loadingTimeline && needsTimeline && activeWeightCut && (
         <View style={styles.timelineNeededCard}>
-          <Text style={styles.timelineNeededIcon}>📅</Text>
-          <Text style={styles.timelineNeededTitle}>Timeline Requerido</Text>
+          <Text style={styles.timelineNeededIcon}>⚠️</Text>
+          <Text style={styles.timelineNeededTitle}>Plan Incompleto</Text>
           <Text style={styles.timelineNeededText}>
-            Necesitas activar tu timeline diario para acceder al dashboard personalizado.
+            Este plan no tiene un timeline diario asociado.
           </Text>
           <Text style={styles.timelineNeededSubtext}>
-            El timeline generará objetivos específicos para cada día de tu plan de corte.
+            Puedes generar el timeline para este plan o crear uno nuevo desde la calculadora.
           </Text>
           <TouchableOpacity
-            style={styles.timelineNeededButton}
-            onPress={() => navigation.navigate('ActivateTimeline', {
-              activePlan: activeWeightCut,
-              totalDays: activeWeightCut.analysis_request?.daysToCut
-            })}
+            style={[styles.timelineNeededButton, isGeneratingTimeline && styles.disabledButton]}
+            onPress={handleGenerateTimeline}
+            disabled={isGeneratingTimeline}
           >
-            <Text style={styles.timelineNeededButtonText}>Activar Timeline</Text>
+            {isGeneratingTimeline ? (
+              <ActivityIndicator color={COLORS.primary} />
+            ) : (
+              <Text style={styles.timelineNeededButtonText}>Generar Timeline</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.timelineSecondaryButton}
+            onPress={() => navigation.navigate('WeightCutCalculator')}
+          >
+            <Text style={styles.timelineSecondaryButtonText}>Crear Nuevo Plan</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1273,11 +1416,30 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 32,
+    marginBottom: 12,
   },
   timelineNeededButtonText: {
     color: COLORS.primary,
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  timelineSecondaryButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+  },
+  timelineSecondaryButtonText: {
+    color: COLORS.secondary,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   todayCard: {
     backgroundColor: COLORS.accent,

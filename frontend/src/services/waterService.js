@@ -1,4 +1,5 @@
 import { WATER_API } from '../config/api';
+import { getTodayDateString } from '../utils/dateUtils';
 
 export const addWaterIntake = async (userId, amountMl) => {
   try {
@@ -10,7 +11,7 @@ export const addWaterIntake = async (userId, amountMl) => {
       body: JSON.stringify({
         userId,
         amountMl,
-        date: new Date().toISOString().split('T')[0],
+        date: getTodayDateString(), // Usa fecha local en lugar de UTC
       }),
     });
 

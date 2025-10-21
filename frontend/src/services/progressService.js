@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from '../config/api';
+import { getUserTimezone } from '../utils/dateUtils';
 
 const PROGRESS_BASE = `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/progress`;
 
@@ -15,7 +16,10 @@ export const addDailyProgress = async (userId, timelineId, dayNumber, progressDa
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(progressData),
+        body: JSON.stringify({
+          ...progressData,
+          clientTimezone: getUserTimezone(), // Enviar timezone del cliente
+        }),
       }
     );
 
@@ -45,7 +49,10 @@ export const setDailyProgress = async (userId, timelineId, dayNumber, progressDa
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(progressData),
+        body: JSON.stringify({
+          ...progressData,
+          clientTimezone: getUserTimezone(), // Enviar timezone del cliente
+        }),
       }
     );
 
@@ -191,17 +198,18 @@ export const skipDayProgress = async (userId, timelineId, dayNumber, reason = nu
 
 /**
  * Helper: Agrega consumo de agua (wrapper sobre addDailyProgress)
+ * NO incluye notes - el agua se registra solo como cantidad numérica
  */
 export const addWaterIntake = async (userId, timelineId, dayNumber, amountMl) => {
   const waterLiters = amountMl / 1000;
   return await addDailyProgress(userId, timelineId, dayNumber, {
     waterLiters,
-    notes: `Agua: ${amountMl}ml`,
   });
 };
 
 /**
  * Helper: Agrega comida con macros (wrapper sobre addDailyProgress)
+ * Almacena información estructurada en JSON para nutrition tracking
  */
 export const addMealProgress = async (userId, timelineId, dayNumber, mealData) => {
   const {
@@ -210,14 +218,33 @@ export const addMealProgress = async (userId, timelineId, dayNumber, mealData) =
     carbsGrams,
     fatsGrams,
     mealName = 'Comida',
+    estimatedWeight = null,
+    confidence = null,
+    ingredients = null,
   } = mealData;
+
+  // Crear objeto estructurado para la comida
+  const mealEntry = {
+    type: 'meal',
+    name: mealName,
+    calories,
+    protein: proteinGrams,
+    carbs: carbsGrams,
+    fats: fatsGrams,
+    timestamp: new Date().toISOString(), // Timestamp en ISO format con timezone
+  };
+
+  // Agregar campos opcionales si existen
+  if (estimatedWeight) mealEntry.weight = estimatedWeight;
+  if (confidence) mealEntry.confidence = confidence;
+  if (ingredients && ingredients.length > 0) mealEntry.ingredients = ingredients;
 
   return await addDailyProgress(userId, timelineId, dayNumber, {
     caloriesConsumed: calories,
     proteinGrams,
     carbsGrams,
     fatsGrams,
-    notes: mealName,
+    notes: JSON.stringify(mealEntry),
   });
 };
 
