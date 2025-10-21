@@ -17,13 +17,17 @@ import { COLORS } from '../styles/colors';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { WEIGHT_CUT_API, PROFILE_API } from '../config/api';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function WeightCutCalculatorScreen({ navigation }) {
   const { user, userId } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
   const [formData, setFormData] = useState({
     targetWeightKg: '',
-    daysToCut: '',
+    startDate: null,
+    weighInDate: null,
+    weighInTime: '', // Hora del pesaje (opcional)
+    daysToCut: '', // Ahora se calcula automáticamente
     experienceLevel: 'amateur',
     combatSport: 'boxeo',
     trainingSessionsPerWeek: '',
@@ -37,6 +41,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   const [showExperienceModal, setShowExperienceModal] = useState(false);
   const [showSportModal, setShowSportModal] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showWeighInDatePicker, setShowWeighInDatePicker] = useState(false);
 
   // Estados para secciones colapsables
   const [isBasicInfoExpanded, setIsBasicInfoExpanded] = useState(true);
@@ -48,6 +54,23 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   useEffect(() => {
     loadUserProfile();
   }, []);
+
+  // Calcular daysToCut automáticamente cuando cambien las fechas
+  useEffect(() => {
+    if (formData.startDate && formData.weighInDate) {
+      const start = new Date(formData.startDate);
+      const weighIn = new Date(formData.weighInDate);
+      start.setHours(0, 0, 0, 0);
+      weighIn.setHours(0, 0, 0, 0);
+
+      const diffTime = weighIn - start;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 0) {
+        setFormData(prev => ({ ...prev, daysToCut: diffDays.toString() }));
+      }
+    }
+  }, [formData.startDate, formData.weighInDate]);
 
   const loadUserProfile = async () => {
     if (user && user.email) {
@@ -71,6 +94,56 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       } finally {
         setIsLoading(false);
       }
+    }
+  };
+
+  // Funciones para manejar el DatePicker
+  const formatDate = (date) => {
+    if (!date) return 'Seleccionar fecha';
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const formatDateForAPI = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleStartDateChange = (event, selectedDate) => {
+    setShowStartDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setFormData(prev => ({ ...prev, startDate: selectedDate }));
+
+      // Si la fecha de inicio es posterior a la de pesaje, limpiar fecha de pesaje
+      if (formData.weighInDate && selectedDate >= formData.weighInDate) {
+        setFormData(prev => ({ ...prev, weighInDate: null, daysToCut: '' }));
+        Alert.alert(
+          'Atención',
+          'La fecha de inicio debe ser anterior a la fecha del pesaje. Por favor selecciona una nueva fecha de pesaje.'
+        );
+      }
+    }
+  };
+
+  const handleWeighInDateChange = (event, selectedDate) => {
+    setShowWeighInDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      // Validar que la fecha de pesaje sea posterior a la de inicio
+      if (formData.startDate && selectedDate <= formData.startDate) {
+        Alert.alert(
+          'Error de Fecha',
+          'La fecha del pesaje debe ser posterior a la fecha de inicio del plan.'
+        );
+        return;
+      }
+
+      setFormData(prev => ({ ...prev, weighInDate: selectedDate }));
     }
   };
 
@@ -109,7 +182,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
   const validateForm = () => {
     const newErrors = {};
-    const { targetWeightKg, daysToCut, trainingSessionsPerWeek, trainingSessionsPerDay } = formData;
+    const { targetWeightKg, startDate, weighInDate, weighInTime, daysToCut, trainingSessionsPerWeek, trainingSessionsPerDay } = formData;
 
     // Verificar que el perfil esté cargado
     if (!userProfile || !userProfile.weight) {
@@ -131,9 +204,43 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       newErrors.targetWeightKg = 'El peso objetivo debe ser menor a tu peso actual';
     }
 
-    // Days to cut validation
+    // Date validations (OBLIGATORIAS)
+    if (!startDate) {
+      newErrors.startDate = 'Debes seleccionar la fecha de inicio del plan';
+    }
+
+    if (!weighInDate) {
+      newErrors.weighInDate = 'Debes seleccionar la fecha del pesaje oficial';
+    }
+
+    // Weigh-in time validation (OBLIGATORIO solo si hay fecha de pesaje)
+    if (weighInDate) {
+      if (!weighInTime || weighInTime.trim() === '') {
+        newErrors.weighInTime = 'Debes ingresar la hora del pesaje oficial';
+      } else {
+        // Validar formato HH:mm
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (!timeRegex.test(weighInTime)) {
+          newErrors.weighInTime = 'Formato inválido. Usa HH:mm (ej: 08:00, 14:30)';
+        }
+      }
+    }
+
+    // Days to cut validation (automático pero se valida)
     if (!daysToCut || parseInt(daysToCut) < 1) {
-      newErrors.daysToCut = 'Los días de corte deben ser mínimo 1';
+      newErrors.daysToCut = 'Debe haber al menos 1 día entre el inicio y el pesaje';
+    }
+
+    // Validar que la fecha de pesaje no sea en el pasado
+    if (weighInDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const weighInDateNormalized = new Date(weighInDate);
+      weighInDateNormalized.setHours(0, 0, 0, 0);
+
+      if (weighInDateNormalized < today) {
+        newErrors.weighInDate = 'La fecha del pesaje no puede ser en el pasado';
+      }
     }
 
     // Training sessions validation
@@ -258,7 +365,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       const requestBody = {
         currentWeightKg: parseFloat(userProfile.weight),
         targetWeightKg: parseFloat(formData.targetWeightKg),
-        daysToCut: parseInt(formData.daysToCut),
         experienceLevel: formData.experienceLevel,
         combatSport: formData.combatSport,
         trainingSessionsPerWeek: parseInt(formData.trainingSessionsPerWeek),
@@ -267,6 +373,20 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         userAge: parseInt(userProfile.age),
         model: formData.model
       };
+
+      // Agregar fechas como strings YYYY-MM-DD
+      if (formData.startDate) {
+        requestBody.startDate = formatDateForAPI(formData.startDate);
+      }
+
+      if (formData.weighInDate) {
+        requestBody.weighInDate = formatDateForAPI(formData.weighInDate);
+      }
+
+      // Agregar hora del pesaje si existe
+      if (formData.weighInTime) {
+        requestBody.weighInTime = formData.weighInTime;
+      }
 
       console.log('Sending request:', requestBody);
 
@@ -352,18 +472,100 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             {errors.targetWeightKg && <Text style={styles.errorText}>{errors.targetWeightKg}</Text>}
           </View>
 
+          {/* FECHA DE INICIO */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Días para el Corte *</Text>
-            <TextInput
-              style={[styles.input, errors.daysToCut && styles.inputError]}
-              placeholder="Ej: 7"
-              placeholderTextColor={COLORS.textSecondary}
-              value={formData.daysToCut}
-              onChangeText={(value) => handleInputChange('daysToCut', value)}
-              keyboardType="numeric"
-            />
-            {errors.daysToCut && <Text style={styles.errorText}>{errors.daysToCut}</Text>}
+            <Text style={styles.label}>Fecha de Inicio del Plan *</Text>
+            <TouchableOpacity
+              style={[styles.datePickerButton, errors.startDate && styles.inputError]}
+              onPress={() => setShowStartDatePicker(true)}
+            >
+              <Text style={[
+                styles.datePickerText,
+                !formData.startDate && styles.datePickerPlaceholder
+              ]}>
+                {formatDate(formData.startDate)}
+              </Text>
+              <Ionicons name="calendar" size={20} color={COLORS.secondary} />
+            </TouchableOpacity>
+            {errors.startDate && <Text style={styles.errorText}>{errors.startDate}</Text>}
           </View>
+
+          {showStartDatePicker && (
+            <DateTimePicker
+              value={formData.startDate || new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleStartDateChange}
+              minimumDate={new Date()}
+            />
+          )}
+
+          {/* FECHA DEL PESAJE */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Fecha del Pesaje Oficial *</Text>
+            <TouchableOpacity
+              style={[styles.datePickerButton, errors.weighInDate && styles.inputError]}
+              onPress={() => setShowWeighInDatePicker(true)}
+              disabled={!formData.startDate}
+            >
+              <Text style={[
+                styles.datePickerText,
+                !formData.weighInDate && styles.datePickerPlaceholder
+              ]}>
+                {formData.startDate ? formatDate(formData.weighInDate) : 'Primero selecciona fecha de inicio'}
+              </Text>
+              <Ionicons name="trophy" size={20} color={COLORS.secondary} />
+            </TouchableOpacity>
+            {errors.weighInDate && <Text style={styles.errorText}>{errors.weighInDate}</Text>}
+            {!formData.startDate && (
+              <Text style={styles.helperText}>
+                Selecciona primero la fecha de inicio
+              </Text>
+            )}
+          </View>
+
+          {showWeighInDatePicker && formData.startDate && (
+            <DateTimePicker
+              value={formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000)}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleWeighInDateChange}
+              minimumDate={new Date(formData.startDate.getTime() + 24 * 60 * 60 * 1000)}
+            />
+          )}
+
+          {/* HORA DEL PESAJE (OBLIGATORIO) */}
+          {formData.weighInDate && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Hora del Pesaje Oficial *</Text>
+              <TextInput
+                style={[styles.input, errors.weighInTime && styles.inputError]}
+                placeholder="08:00 (formato 24h)"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.weighInTime}
+                onChangeText={(value) => handleInputChange('weighInTime', value)}
+                keyboardType="numbers-and-punctuation"
+                maxLength={5}
+              />
+              {errors.weighInTime && <Text style={styles.errorText}>{errors.weighInTime}</Text>}
+              <Text style={styles.helperText}>
+                Formato 24h (HH:mm). Ej: 08:00, 14:30. Se generará un día parcial con instrucciones especiales para las últimas horas antes del pesaje.
+              </Text>
+            </View>
+          )}
+
+          {/* DÍAS CALCULADOS (Read-only) */}
+          {formData.daysToCut && formData.daysToCut !== '' && (
+            <View style={styles.calculatedDaysContainer}>
+              <View style={styles.calculatedDaysIcon}>
+                <Ionicons name="time" size={24} color={COLORS.secondary} />
+              </View>
+              <View style={styles.calculatedDaysContent}>
+                <Text style={styles.calculatedDaysLabel}>Duración del Plan</Text>
+                <Text style={styles.calculatedDaysValue}>{formData.daysToCut} días</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* === PREVIEW SIMPLE (Solo aparece con datos válidos) === */}
@@ -943,5 +1145,56 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 16,
     fontWeight: '500',
+  },
+  // Date Picker Styles
+  datePickerButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: COLORS.text,
+    flex: 1,
+  },
+  datePickerPlaceholder: {
+    color: COLORS.textSecondary,
+  },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  calculatedDaysContainer: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.secondary + '20',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  calculatedDaysIcon: {
+    marginRight: 12,
+  },
+  calculatedDaysContent: {
+    flex: 1,
+  },
+  calculatedDaysLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  calculatedDaysValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
   },
 });

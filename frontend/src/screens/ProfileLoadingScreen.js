@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { preloadUserData } from '../services/preloadService';
 
 export default function ProfileLoadingScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, userId, updatePreloadedData } = useAuth();
 
   useEffect(() => {
     checkAndLoadProfile();
@@ -12,47 +13,53 @@ export default function ProfileLoadingScreen({ navigation }) {
   const checkAndLoadProfile = async () => {
     if (user && user.email) {
       try {
-        const response = await fetch(
-          'https://3f8q0vhfcf.execute-api.us-east-1.amazonaws.com/dev/profile?email=' + user.email
-        );
+        console.log('🚀 Iniciando carga optimizada del perfil...');
+        const startTime = Date.now();
 
-        if (response.ok) {
-          const data = await response.json();
+        // Precargar TODOS los datos en paralelo (perfil, plan, timeline)
+        const preloadedData = await preloadUserData(user.email, userId);
 
-          // Esperar al menos 1.5 segundos para que se vean los mensajes dinámicos
-          await new Promise(resolve => setTimeout(resolve, 1500));
+        // Guardar en caché global para acceso instantáneo
+        updatePreloadedData(preloadedData);
 
-          if (data.data && data.data.length > 0) {
-            const profile = data.data[0];
+        const loadTime = Date.now() - startTime;
+        console.log(`✅ Carga completada en ${loadTime}ms`);
 
-            // Verificar si el perfil está incompleto
-            const isIncomplete = !profile.weight || !profile.height || !profile.age || !profile.name;
+        // Esperar mínimo 800ms para animación suave (reducido de 1500ms)
+        const remainingTime = Math.max(0, 800 - loadTime);
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
 
-            if (isIncomplete) {
-              // Perfil incompleto - ir a EditProfile con datos precargados
-              navigation.replace('EditProfile', {
-                isProfileIncomplete: true,
-                preloadedProfile: profile
-              });
-            } else {
-              // Perfil completo - ir a Main con datos precargados
-              navigation.replace('Main', {
-                preloadedProfile: profile
-              });
-            }
-          } else {
-            // No hay perfil - ir a EditProfile sin datos precargados
+        const profile = preloadedData.profile;
+
+        if (profile) {
+          // Verificar si el perfil está incompleto
+          const isIncomplete = !profile.weight || !profile.height || !profile.age || !profile.name;
+
+          if (isIncomplete) {
+            // Perfil incompleto - ir a EditProfile con datos precargados
             navigation.replace('EditProfile', {
               isProfileIncomplete: true,
-              preloadedProfile: null
+              preloadedProfile: profile
+            });
+          } else {
+            // Perfil completo - ir a Main con TODOS los datos precargados
+            navigation.replace('Main', {
+              preloadedProfile: profile,
+              preloadedPlan: preloadedData.activePlan,
+              preloadedTimeline: preloadedData.timeline
             });
           }
         } else {
-          // Error al cargar perfil - ir a Main de todos modos
-          navigation.replace('Main');
+          // No hay perfil - ir a EditProfile sin datos precargados
+          navigation.replace('EditProfile', {
+            isProfileIncomplete: true,
+            preloadedProfile: null
+          });
         }
       } catch (error) {
-        console.error('Error checking profile:', error);
+        console.error('❌ Error en carga de perfil:', error);
         // En caso de error, ir a Main de todos modos
         navigation.replace('Main');
       }

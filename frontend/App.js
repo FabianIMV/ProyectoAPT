@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
@@ -9,6 +10,7 @@ import ProfileLoadingScreen from './src/screens/ProfileLoadingScreen';
 import TabNavigator from './src/navigation/TabNavigator';
 import NutritionResultsScreen from './src/screens/NutritionResultsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
+import WeightCutCalculatorScreen from './src/screens/WeightCutCalculatorScreen';
 import WeightCutResultsScreen from './src/screens/WeightCutResultsScreen';
 import WeightCutHistoryScreen from './src/screens/WeightCutHistoryScreen';
 import ActivateTimelineScreen from './src/screens/ActivateTimelineScreen';
@@ -24,7 +26,7 @@ export default function App() {
       <NavigationContainer>
       <StatusBar style="light" />
       <Stack.Navigator
-        initialRouteName="Login"
+        initialRouteName="Splash"
         screenOptions={{
           headerStyle: {
             backgroundColor: COLORS.primary,
@@ -35,6 +37,11 @@ export default function App() {
           },
         }}
       >
+        <Stack.Screen
+          name="Splash"
+          component={SplashScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen
           name="Login"
           component={LoginScreen}
@@ -69,6 +76,11 @@ export default function App() {
           name="EditProfile"
           component={EditProfileScreen}
           options={{ title: 'Editar Perfil' }}
+        />
+        <Stack.Screen
+          name="WeightCutCalculator"
+          component={WeightCutCalculatorScreen}
+          options={{ title: 'Calculadora de Corte de Peso' }}
         />
         <Stack.Screen
           name="WeightCutResults"

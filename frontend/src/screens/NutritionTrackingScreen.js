@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { WEIGHT_CUT_API } from '../config/api';
 import { getDayProgress } from '../services/progressService';
+import { calculateCurrentDayIndex, formatTime } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +34,7 @@ export default function NutritionTrackingScreen({ navigation }) {
           const timeline = result.data;
           setTimelineId(timeline.id);
 
-          const dayIndex = calculateCurrentDay(timeline.start_date, timeline.total_days);
+          const dayIndex = calculateCurrentDayIndex(timeline.start_date, timeline.total_days);
 
           if (dayIndex !== null && dayIndex >= 0 && dayIndex !== 'completed') {
             const dayNum = dayIndex + 1;
@@ -72,19 +73,7 @@ export default function NutritionTrackingScreen({ navigation }) {
     return unsubscribe;
   }, [navigation, userId]);
 
-  const calculateCurrentDay = (startDate, totalDays) => {
-    const start = new Date(startDate);
-    const today = new Date();
-    start.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-
-    const dayIndex = Math.floor((today - start) / (1000 * 60 * 60 * 24));
-
-    if (dayIndex < 0) return null;
-    if (dayIndex >= totalDays) return 'completed';
-
-    return dayIndex;
-  };
+  // Función deprecada - ahora se usa calculateCurrentDayIndex desde utils/dateUtils
 
   // Usar datos del progreso si están disponibles (manejar tanto camelCase como snake_case)
   const totalCalories = dayProgress?.actualCalories || dayProgress?.actual_calories || 0;
@@ -99,6 +88,28 @@ export default function NutritionTrackingScreen({ navigation }) {
   const targetProtein = currentDayData ? currentDayData.targets.macros.proteinGrams : 150;
   const targetCarbs = currentDayData ? currentDayData.targets.macros.carbGrams : 200;
   const targetFats = currentDayData ? currentDayData.targets.macros.fatGrams : 60;
+
+  // Parsear meals del array de notes
+  const meals = React.useMemo(() => {
+    if (!dayProgress?.notes || !Array.isArray(dayProgress.notes)) return [];
+
+    return dayProgress.notes
+      .map((note, index) => {
+        try {
+          const parsed = JSON.parse(note);
+          if (parsed.type === 'meal') {
+            return { ...parsed, id: index };
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      })
+      .filter(meal => meal !== null);
+  }, [dayProgress]);
+
+  // Formatear hora de la comida usando utility function
+  const formatMealTime = (timestamp) => formatTime(timestamp);
 
   return (
     <ScrollView
@@ -214,7 +225,7 @@ export default function NutritionTrackingScreen({ navigation }) {
       {/* Meals List */}
       <View style={styles.mealsSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Registrar comida</Text>
+          <Text style={styles.sectionTitle}>Comidas Registradas</Text>
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => navigation.navigate('Scanner')}
@@ -223,7 +234,67 @@ export default function NutritionTrackingScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+          </View>
+        ) : meals.length === 0 ? (
+          <View style={styles.emptyMealsCard}>
+            <Text style={styles.emptyMealsIcon}>🍽️</Text>
+            <Text style={styles.emptyMealsText}>No has registrado comidas aún</Text>
+            <Text style={styles.emptyMealsSubtext}>
+              Toca el botón + para escanear tu comida
+            </Text>
+          </View>
+        ) : (
+          meals.map((meal) => (
+            <View key={meal.id} style={styles.mealCard}>
+              <View style={styles.mealHeader}>
+                <View>
+                  <Text style={styles.mealName}>{meal.name}</Text>
+                  <Text style={styles.mealTime}>{formatMealTime(meal.timestamp)}</Text>
+                  {meal.weight && (
+                    <Text style={styles.mealTime}>Peso: {meal.weight}g</Text>
+                  )}
+                  {meal.confidence && (
+                    <Text style={styles.mealTime}>Confianza: {meal.confidence}%</Text>
+                  )}
+                </View>
+                <Text style={styles.mealCalories}>{meal.calories} cal</Text>
+              </View>
+
+              <View style={styles.mealMacros}>
+                <View style={styles.mealMacroItem}>
+                  <Text style={[styles.mealMacroValue, { color: '#4CAF50' }]}>
+                    {meal.protein}g
+                  </Text>
+                  <Text style={styles.macroLabel}>Proteínas</Text>
+                </View>
+                <View style={styles.mealMacroItem}>
+                  <Text style={[styles.mealMacroValue, { color: '#FF9800' }]}>
+                    {meal.carbs}g
+                  </Text>
+                  <Text style={styles.macroLabel}>Carbohidratos</Text>
+                </View>
+                <View style={styles.mealMacroItem}>
+                  <Text style={[styles.mealMacroValue, { color: '#2196F3' }]}>
+                    {meal.fats}g
+                  </Text>
+                  <Text style={styles.macroLabel}>Grasas</Text>
+                </View>
+              </View>
+
+              {meal.ingredients && meal.ingredients.length > 0 && (
+                <View style={styles.ingredientsContainer}>
+                  <Text style={styles.ingredientsTitle}>Ingredientes:</Text>
+                  <Text style={styles.ingredientsText}>
+                    {meal.ingredients.join(', ')}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ))
+        )}
       </View>
 
       <View style={styles.bottomSpacing} />
@@ -523,5 +594,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     marginTop: 10,
+  },
+  ingredientsContainer: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+  },
+  ingredientsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  ingredientsText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
 });

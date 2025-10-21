@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [preloadedData, setPreloadedData] = useState(null); // Caché de datos precargados
 
   useEffect(() => {
     loadUserFromStorage();
@@ -84,9 +85,20 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.removeItem('@nutricombat_user_id');
       setUser(null);
       setUserId(null);
+      setPreloadedData(null); // Limpiar caché al cerrar sesión
     } catch (error) {
       console.error('Error eliminando usuario:', error);
     }
+  };
+
+  const updatePreloadedData = (data) => {
+    setPreloadedData(data);
+    console.log('📦 Datos precargados actualizados en AuthContext');
+  };
+
+  const clearPreloadedData = () => {
+    setPreloadedData(null);
+    console.log('🗑️ Caché de datos precargados limpiada');
   };
 
   const getToken = async () => {
@@ -103,10 +115,13 @@ export const AuthProvider = ({ children }) => {
     user,
     userId,
     isLoading,
+    preloadedData,
     login,
     logout,
     getToken,
     setUserIdInSession,
+    updatePreloadedData,
+    clearPreloadedData,
     isAuthenticated: !!user
   };
 
