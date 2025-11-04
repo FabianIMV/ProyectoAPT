@@ -390,16 +390,25 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
       console.log('Sending request:', requestBody);
 
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
       const response = await fetch(WEIGHT_CUT_API.analyze, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(requestBody),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.text();
+        console.error('Error response:', errorData);
         throw new Error(`HTTP ${response.status}: ${errorData}`);
       }
 
@@ -419,12 +428,20 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
     } catch (error) {
       console.error('Error analyzing weight cut:', error);
-      Alert.alert(
-        'Error de análisis',
-        error.message.includes('400') ?
-          'Datos inválidos. Verifica que el peso objetivo sea menor al actual.' :
-          'No se pudo analizar el plan de corte. Intenta nuevamente.'
-      );
+
+      let errorMessage = 'No se pudo analizar el plan de corte. Intenta nuevamente.';
+
+      if (error.name === 'AbortError') {
+        errorMessage = 'La petición tardó demasiado. Verifica tu conexión a internet.';
+      } else if (error.message.includes('400')) {
+        errorMessage = 'Datos inválidos. Verifica que el peso objetivo sea menor al actual.';
+      } else if (error.message.includes('502')) {
+        errorMessage = 'Error del servidor. Por favor intenta nuevamente en unos momentos.';
+      } else if (error.message.includes('Network')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+      }
+
+      Alert.alert('Error de análisis', errorMessage);
     } finally {
       setIsLoading(false);
     }
