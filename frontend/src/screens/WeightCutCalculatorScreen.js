@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,9 @@ import {
   Alert,
   Platform,
   Modal,
-  FlatList
+  FlatList,
+  KeyboardAvoidingView,
+  Keyboard
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +24,14 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 export default function WeightCutCalculatorScreen({ navigation }) {
   const { user, userId } = useAuth();
   const [userProfile, setUserProfile] = useState(null);
+  const scrollViewRef = useRef(null);
+  
+  // Refs para los inputs
+  const targetWeightRef = useRef(null);
+  const weighInTimeRef = useRef(null);
+  const sessionsPerWeekRef = useRef(null);
+  const sessionsPerDayRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     targetWeightKg: '',
     startDate: null,
@@ -43,6 +53,10 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   const [showModelModal, setShowModelModal] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showWeighInDatePicker, setShowWeighInDatePicker] = useState(false);
+  
+  // Estados temporales para los date pickers (iOS)
+  const [tempStartDate, setTempStartDate] = useState(null);
+  const [tempWeighInDate, setTempWeighInDate] = useState(null);
 
   // Estados para secciones colapsables
   const [isBasicInfoExpanded, setIsBasicInfoExpanded] = useState(true);
@@ -116,35 +130,93 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   };
 
   const handleStartDateChange = (event, selectedDate) => {
-    setShowStartDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setFormData(prev => ({ ...prev, startDate: selectedDate }));
+    if (Platform.OS === 'android') {
+      setShowStartDatePicker(false);
+      if (selectedDate) {
+        setFormData(prev => ({ ...prev, startDate: selectedDate }));
 
-      // Si la fecha de inicio es posterior a la de pesaje, limpiar fecha de pesaje
-      if (formData.weighInDate && selectedDate >= formData.weighInDate) {
-        setFormData(prev => ({ ...prev, weighInDate: null, daysToCut: '' }));
-        Alert.alert(
-          'Atención',
-          'La fecha de inicio debe ser anterior a la fecha del pesaje. Por favor selecciona una nueva fecha de pesaje.'
-        );
+        // Si la fecha de inicio es posterior a la de pesaje, limpiar fecha de pesaje
+        if (formData.weighInDate && selectedDate >= formData.weighInDate) {
+          setFormData(prev => ({ ...prev, weighInDate: null, daysToCut: '' }));
+          Alert.alert(
+            'Atención',
+            'La fecha de inicio debe ser anterior a la fecha del pesaje. Por favor selecciona una nueva fecha de pesaje.'
+          );
+        }
+      }
+    } else {
+      // iOS - guardar en estado temporal
+      if (selectedDate) {
+        setTempStartDate(selectedDate);
       }
     }
   };
 
-  const handleWeighInDateChange = (event, selectedDate) => {
-    setShowWeighInDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      // Validar que la fecha de pesaje sea posterior a la de inicio
-      if (formData.startDate && selectedDate <= formData.startDate) {
-        Alert.alert(
-          'Error de Fecha',
-          'La fecha del pesaje debe ser posterior a la fecha de inicio del plan.'
-        );
-        return;
-      }
+  const handleStartDateConfirm = () => {
+    setShowStartDatePicker(false);
+    const dateToUse = tempStartDate || formData.startDate || new Date();
+    setFormData(prev => ({ ...prev, startDate: dateToUse }));
 
-      setFormData(prev => ({ ...prev, weighInDate: selectedDate }));
+    // Si la fecha de inicio es posterior a la de pesaje, limpiar fecha de pesaje
+    if (formData.weighInDate && dateToUse >= formData.weighInDate) {
+      setFormData(prev => ({ ...prev, weighInDate: null, daysToCut: '' }));
+      Alert.alert(
+        'Atención',
+        'La fecha de inicio debe ser anterior a la fecha del pesaje. Por favor selecciona una nueva fecha de pesaje.'
+      );
     }
+    setTempStartDate(null);
+  };
+
+  const handleStartDateCancel = () => {
+    setShowStartDatePicker(false);
+    setTempStartDate(null);
+  };
+
+  const handleWeighInDateChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowWeighInDatePicker(false);
+      if (selectedDate) {
+        // Validar que la fecha de pesaje sea posterior a la de inicio
+        if (formData.startDate && selectedDate <= formData.startDate) {
+          Alert.alert(
+            'Error de Fecha',
+            'La fecha del pesaje debe ser posterior a la fecha de inicio del plan.'
+          );
+          return;
+        }
+
+        setFormData(prev => ({ ...prev, weighInDate: selectedDate }));
+      }
+    } else {
+      // iOS - guardar en estado temporal
+      if (selectedDate) {
+        setTempWeighInDate(selectedDate);
+      }
+    }
+  };
+
+  const handleWeighInDateConfirm = () => {
+    setShowWeighInDatePicker(false);
+    const dateToUse = tempWeighInDate || formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Validar que la fecha de pesaje sea posterior a la de inicio
+    if (formData.startDate && dateToUse <= formData.startDate) {
+      Alert.alert(
+        'Error de Fecha',
+        'La fecha del pesaje debe ser posterior a la fecha de inicio del plan.'
+      );
+      setTempWeighInDate(null);
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, weighInDate: dateToUse }));
+    setTempWeighInDate(null);
+  };
+
+  const handleWeighInDateCancel = () => {
+    setShowWeighInDatePicker(false);
+    setTempWeighInDate(null);
   };
 
   // Función simple para clasificar tipo de corte
@@ -267,6 +339,36 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       ...prev,
       [field]: value
     }));
+  };
+
+  // Formatear hora automáticamente (HH:mm)
+  const handleTimeChange = (text) => {
+    // Remover todo lo que no sea número
+    const cleaned = text.replace(/[^0-9]/g, '');
+    
+    let formatted = cleaned;
+    
+    // Auto-formatear con dos puntos
+    if (cleaned.length >= 3) {
+      formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+    }
+    
+    // Limitar a 4 dígitos (HH:mm = 5 caracteres con el :)
+    if (formatted.length > 5) {
+      formatted = formatted.slice(0, 5);
+    }
+    
+    setFormData(prev => ({ ...prev, weighInTime: formatted }));
+  };
+
+  // Función para hacer scroll automático a una posición
+  const scrollToPosition = (yOffset) => {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: yOffset,
+        animated: true
+      });
+    }, 100);
   };
 
   const experienceOptions = [
@@ -476,8 +578,19 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
         <Text style={styles.title}>Calculadora de Corte de Peso</Text>
         <Text style={styles.subtitle}>Genera un plan personalizado con IA</Text>
 
@@ -497,11 +610,13 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Peso Objetivo (kg) *</Text>
             <TextInput
+              ref={targetWeightRef}
               style={[styles.input, errors.targetWeightKg && styles.inputError]}
               placeholder="Ej: 66"
               placeholderTextColor={COLORS.textSecondary}
               value={formData.targetWeightKg}
               onChangeText={(value) => handleInputChange('targetWeightKg', value)}
+              onFocus={() => scrollToPosition(100)}
               keyboardType="numeric"
             />
             {errors.targetWeightKg && <Text style={styles.errorText}>{errors.targetWeightKg}</Text>}
@@ -512,7 +627,10 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             <Text style={styles.label}>Fecha de Inicio del Plan *</Text>
             <TouchableOpacity
               style={[styles.datePickerButton, errors.startDate && styles.inputError]}
-              onPress={() => setShowStartDatePicker(true)}
+              onPress={() => {
+                setShowStartDatePicker(true);
+                scrollToPosition(200);
+              }}
             >
               <Text style={[
                 styles.datePickerText,
@@ -531,21 +649,21 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 visible={showStartDatePicker}
                 transparent={true}
                 animationType="slide"
-                onRequestClose={() => setShowStartDatePicker(false)}
+                onRequestClose={handleStartDateCancel}
               >
                 <View style={styles.datePickerModalOverlay}>
                   <View style={styles.datePickerModalContent}>
                     <View style={styles.datePickerHeader}>
-                      <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
+                      <TouchableOpacity onPress={handleStartDateCancel}>
                         <Text style={styles.datePickerCancelButton}>Cancelar</Text>
                       </TouchableOpacity>
                       <Text style={styles.datePickerTitle}>Fecha de Inicio</Text>
-                      <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
+                      <TouchableOpacity onPress={handleStartDateConfirm}>
                         <Text style={styles.datePickerDoneButton}>Listo</Text>
                       </TouchableOpacity>
                     </View>
                     <DateTimePicker
-                      value={formData.startDate || new Date()}
+                      value={tempStartDate || formData.startDate || new Date()}
                       mode="date"
                       display="spinner"
                       onChange={handleStartDateChange}
@@ -573,7 +691,10 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             <Text style={styles.label}>Fecha del Pesaje Oficial *</Text>
             <TouchableOpacity
               style={[styles.datePickerButton, errors.weighInDate && styles.inputError]}
-              onPress={() => setShowWeighInDatePicker(true)}
+              onPress={() => {
+                setShowWeighInDatePicker(true);
+                scrollToPosition(350);
+              }}
               disabled={!formData.startDate}
             >
               <Text style={[
@@ -598,21 +719,21 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 visible={showWeighInDatePicker}
                 transparent={true}
                 animationType="slide"
-                onRequestClose={() => setShowWeighInDatePicker(false)}
+                onRequestClose={handleWeighInDateCancel}
               >
                 <View style={styles.datePickerModalOverlay}>
                   <View style={styles.datePickerModalContent}>
                     <View style={styles.datePickerHeader}>
-                      <TouchableOpacity onPress={() => setShowWeighInDatePicker(false)}>
+                      <TouchableOpacity onPress={handleWeighInDateCancel}>
                         <Text style={styles.datePickerCancelButton}>Cancelar</Text>
                       </TouchableOpacity>
                       <Text style={styles.datePickerTitle}>Fecha del Pesaje</Text>
-                      <TouchableOpacity onPress={() => setShowWeighInDatePicker(false)}>
+                      <TouchableOpacity onPress={handleWeighInDateConfirm}>
                         <Text style={styles.datePickerDoneButton}>Listo</Text>
                       </TouchableOpacity>
                     </View>
                     <DateTimePicker
-                      value={formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000)}
+                      value={tempWeighInDate || formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000)}
                       mode="date"
                       display="spinner"
                       onChange={handleWeighInDateChange}
@@ -640,17 +761,19 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Hora del Pesaje Oficial *</Text>
               <TextInput
+                ref={weighInTimeRef}
                 style={[styles.input, errors.weighInTime && styles.inputError]}
-                placeholder="08:00 (formato 24h)"
+                placeholder="Ej: 08:00, 14:30"
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.weighInTime}
-                onChangeText={(value) => handleInputChange('weighInTime', value)}
-                keyboardType="numbers-and-punctuation"
+                onChangeText={handleTimeChange}
+                onFocus={() => scrollToPosition(500)}
+                keyboardType="number-pad"
                 maxLength={5}
               />
               {errors.weighInTime && <Text style={styles.errorText}>{errors.weighInTime}</Text>}
               <Text style={styles.helperText}>
-                Formato 24h (HH:mm). Ej: 08:00, 14:30. Se generará un día parcial con instrucciones especiales para las últimas horas antes del pesaje.
+                Solo números (ej: 0800, 1430). Los dos puntos se agregarán automáticamente.
               </Text>
             </View>
           )}
@@ -801,11 +924,13 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Sesiones por Semana (1-7) *</Text>
               <TextInput
+                ref={sessionsPerWeekRef}
                 style={[styles.input, errors.trainingSessionsPerWeek && styles.inputError]}
                 placeholder="Ej: 5"
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.trainingSessionsPerWeek}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerWeek', value)}
+                onFocus={() => scrollToPosition(900)}
                 keyboardType="numeric"
               />
               {errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
@@ -814,11 +939,13 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Sesiones por Día (1-3) *</Text>
               <TextInput
+                ref={sessionsPerDayRef}
                 style={[styles.input, errors.trainingSessionsPerDay && styles.inputError]}
                 placeholder="Ej: 1"
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.trainingSessionsPerDay}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerDay', value)}
+                onFocus={() => scrollToPosition(1000)}
                 keyboardType="numeric"
               />
               {errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
@@ -885,7 +1012,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           Consulta con profesionales de la salud antes de iniciar cualquier plan de corte de peso.
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -893,6 +1021,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     padding: 20,

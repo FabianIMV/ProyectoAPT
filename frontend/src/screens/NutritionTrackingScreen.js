@@ -89,23 +89,87 @@ export default function NutritionTrackingScreen({ navigation }) {
   const targetCarbs = currentDayData ? currentDayData.targets.macros.carbGrams : 200;
   const targetFats = currentDayData ? currentDayData.targets.macros.fatGrams : 60;
 
-  // Parsear meals del array de notes
+  // Parsear meals del array de notes o string
   const meals = React.useMemo(() => {
-    if (!dayProgress?.notes || !Array.isArray(dayProgress.notes)) return [];
+    if (!dayProgress) return [];
 
-    return dayProgress.notes
-      .map((note, index) => {
-        try {
-          const parsed = JSON.parse(note);
-          if (parsed.type === 'meal') {
-            return { ...parsed, id: index };
+    // Manejar tanto camelCase como snake_case
+    const notesData = dayProgress.notes || dayProgress.day_notes;
+
+    console.log('📝 notesData tipo:', typeof notesData);
+
+    if (!notesData) return [];
+
+    let mealsArray = [];
+
+    // Si notes es un string con formato "[HH:MM] {...}\n[HH:MM] {...}"
+    if (typeof notesData === 'string') {
+      try {
+        // Dividir por líneas y procesar cada una
+        const lines = notesData.split('\n').filter(line => line.trim());
+
+        console.log('📝 Encontradas', lines.length, 'líneas');
+
+        mealsArray = lines
+          .map((line, index) => {
+            try {
+              // Remover el timestamp [HH:MM] del inicio
+              // Formato: "[17:58] {...json...}"
+              const match = line.match(/^\[[\d:]+\]\s*(.+)$/);
+
+              if (match && match[1]) {
+                const jsonString = match[1].trim();
+                const parsed = JSON.parse(jsonString);
+
+                if (parsed.type === 'meal') {
+                  console.log('✅ Meal parseada:', parsed.name);
+                  return { ...parsed, id: index };
+                }
+              } else {
+                // Intentar parsear directamente si no tiene timestamp
+                const parsed = JSON.parse(line);
+                if (parsed.type === 'meal') {
+                  console.log('✅ Meal parseada (sin timestamp):', parsed.name);
+                  return { ...parsed, id: index };
+                }
+              }
+              return null;
+            } catch (error) {
+              console.log('⚠️ Error parsing line:', line.substring(0, 50), error.message);
+              return null;
+            }
+          })
+          .filter(meal => meal !== null);
+
+        console.log('📊 Total meals procesadas:', mealsArray.length);
+
+      } catch (error) {
+        console.log('❌ Error procesando notes:', error);
+        return [];
+      }
+    } else if (Array.isArray(notesData)) {
+      // Si notes ya es un array
+      mealsArray = notesData
+        .map((note, index) => {
+          try {
+            if (typeof note === 'string') {
+              const parsed = JSON.parse(note);
+              if (parsed.type === 'meal') {
+                return { ...parsed, id: index };
+              }
+            } else if (note && note.type === 'meal') {
+              return { ...note, id: index };
+            }
+            return null;
+          } catch (error) {
+            console.log('Error parsing meal:', error);
+            return null;
           }
-          return null;
-        } catch {
-          return null;
-        }
-      })
-      .filter(meal => meal !== null);
+        })
+        .filter(meal => meal !== null);
+    }
+
+    return mealsArray;
   }, [dayProgress]);
 
   // Formatear hora de la comida usando utility function

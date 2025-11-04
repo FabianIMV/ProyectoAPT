@@ -6,12 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Alert,
+  SafeAreaView,
+  Platform
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { getDailyWaterIntake, getWeeklyWaterIntake } from '../services/waterService';
+import { addWaterIntake, getDayProgress } from '../services/progressService';
+import { calculateCurrentDayNumber } from '../utils/dateUtils';
+import { WEIGHT_CUT_API } from '../config/api';
 import WaterIntakeModal from '../components/WaterIntakeModal';
 
 export default function WaterHistoryScreen({ navigation }) {
@@ -22,6 +27,9 @@ export default function WaterHistoryScreen({ navigation }) {
   const [weeklyIntake, setWeeklyIntake] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [addingWater, setAddingWater] = useState(false);
+  const [timelineId, setTimelineId] = useState(null);
+  const [currentDayNumber, setCurrentDayNumber] = useState(null);
+  const [activeTimeline, setActiveTimeline] = useState(null);
 
   useEffect(() => {
     if (userId) {
@@ -32,20 +40,98 @@ export default function WaterHistoryScreen({ navigation }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [todayResult, weeklyResult] = await Promise.all([
-        getDailyWaterIntake(userId),
-        getWeeklyWaterIntake(userId)
-      ]);
+      // 1. Obtener timeline activo (igual que DashboardScreen)
+      const response = await fetch(WEIGHT_CUT_API.getTimeline(userId));
 
-      if (todayResult.success) {
-        setTodayIntake(todayResult.data);
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('⚠️ No hay timeline activo');
+        }
+        setTodayIntake(null);
+        setWeeklyIntake([]);
+        setTimelineId(null);
+        setCurrentDayNumber(null);
+        setActiveTimeline(null);
+        setLoading(false);
+        return;
       }
 
-      if (weeklyResult.success) {
-        setWeeklyIntake(weeklyResult.data || []);
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        console.log('⚠️ No hay timeline válido');
+        setTodayIntake(null);
+        setWeeklyIntake([]);
+        setLoading(false);
+        return;
       }
+
+      const timeline = result.data;
+      setActiveTimeline(timeline);
+      setTimelineId(timeline.id);
+
+      // 2. Calcular día actual (usando start_date como en Dashboard)
+      const dayNum = calculateCurrentDayNumber(timeline.start_date, timeline.total_days);
+      setCurrentDayNumber(dayNum);
+
+      // 3. Obtener datos de agua del día actual
+      if (timeline.id && dayNum !== null) {
+        const todayResult = await getDayProgress(userId, timeline.id, dayNum);
+        if (todayResult.success && todayResult.data) {
+          const waterLiters = todayResult.data.actualWaterLiters || todayResult.data.actual_water_liters || 0;
+          setTodayIntake({
+            totalLiters: waterLiters,
+            totalMl: waterLiters * 1000,
+            intakeCount: 1,
+          });
+        } else {
+          setTodayIntake({
+            totalLiters: 0,
+            totalMl: 0,
+            intakeCount: 0,
+          });
+        }
+
+        // 4. Obtener datos de los últimos 7 días
+        const weeklyData = [];
+        const today = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+          const checkDay = dayNum - i;
+          if (checkDay >= 1) {
+            try {
+              const dayResult = await getDayProgress(userId, timeline.id, checkDay);
+              const dayDate = new Date(timeline.start_date);
+              dayDate.setDate(dayDate.getDate() + (checkDay - 1));
+
+              if (dayResult.success && dayResult.data) {
+                const waterLiters = dayResult.data.actualWaterLiters || dayResult.data.actual_water_liters || 0;
+                weeklyData.push({
+                  date: dayDate.toISOString(),
+                  totalLiters: waterLiters,
+                  totalMl: waterLiters * 1000,
+                  intakeCount: 1,
+                });
+              }
+            } catch (error) {
+              console.log(`Error cargando día ${checkDay}:`, error);
+            }
+          }
+        }
+
+        setWeeklyIntake(weeklyData);
+      } else {
+        setTodayIntake({
+          totalLiters: 0,
+          totalMl: 0,
+          intakeCount: 0,
+        });
+        setWeeklyIntake([]);
+      }
+
     } catch (error) {
       console.error('Error cargando datos:', error);
+      setTodayIntake(null);
+      setWeeklyIntake([]);
     } finally {
       setLoading(false);
     }
@@ -58,17 +144,24 @@ export default function WaterHistoryScreen({ navigation }) {
   };
 
   const handleAddWater = async (amount) => {
+    if (!timelineId || currentDayNumber === null) {
+      Alert.alert('Error', 'No hay un timeline activo. Debes tener un plan de corte activo para registrar agua.');
+      return;
+    }
+
     setAddingWater(true);
     try {
-      const { addWaterIntake } = require('../services/waterService');
-      const result = await addWaterIntake(userId, amount);
+      const result = await addWaterIntake(userId, timelineId, currentDayNumber, amount);
 
       if (result.success) {
         await loadData();
         setModalVisible(false);
+      } else {
+        Alert.alert('Error', result.error || 'No se pudo registrar el agua');
       }
     } catch (error) {
       console.error('Error agregando agua:', error);
+      Alert.alert('Error', 'Ocurrió un error al registrar el agua');
     } finally {
       setAddingWater(false);
     }
@@ -103,27 +196,28 @@ export default function WaterHistoryScreen({ navigation }) {
   const todayProgress = getProgressPercentage(todayLiters, targetLiters);
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[COLORS.secondary]}
-          tintColor={COLORS.secondary}
-        />
-      }
-    >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Historial de Agua</Text>
-        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addButton}>
-          <Ionicons name="add-circle" size={32} color={COLORS.secondary} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.secondary]}
+            tintColor={COLORS.secondary}
+          />
+        }
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Historial de Agua</Text>
+          <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.addButton}>
+            <Ionicons name="add-circle" size={32} color={COLORS.secondary} />
+          </TouchableOpacity>
+        </View>
 
       <View style={styles.todayCard}>
         <View style={styles.todayHeader}>
@@ -226,10 +320,15 @@ export default function WaterHistoryScreen({ navigation }) {
         loading={addingWater}
       />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
@@ -243,7 +342,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: Platform.OS === 'ios' ? 10 : 20,
     paddingBottom: 15,
   },
   backButton: {
