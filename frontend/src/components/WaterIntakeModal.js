@@ -8,7 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   ScrollView,
-  Dimensions
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,7 +62,15 @@ export default function WaterIntakeModal({ visible, onClose, onSubmit, loading }
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
+        <TouchableOpacity 
+          style={styles.dismissArea} 
+          activeOpacity={1} 
+          onPress={handleClose}
+        />
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>Registrar Consumo de Agua</Text>
@@ -141,7 +151,7 @@ export default function WaterIntakeModal({ visible, onClose, onSubmit, loading }
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -152,12 +162,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
+  dismissArea: {
+    flex: 1,
+  },
   modalContainer: {
     backgroundColor: COLORS.primary,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     maxHeight: '80%',
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
   },
   header: {
     flexDirection: 'row',
