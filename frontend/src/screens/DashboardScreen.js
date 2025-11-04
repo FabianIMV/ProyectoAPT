@@ -383,9 +383,16 @@ export default function DashboardScreen({ navigation, route }) {
 
     try {
       const timelinePayload = {
-        userId: userId,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santiago'
+        userId: userId
       };
+
+      // Agregar startDate si existe en el plan
+      if (activeWeightCut.analysis_request?.startDate) {
+        timelinePayload.startDate = activeWeightCut.analysis_request.startDate;
+      }
+
+      // NO enviar weighInTime ni timezone - el backend lo obtiene del plan guardado
+      // Esto evita el timeout cuando el backend intenta generar día parcial
 
       console.log('📅 Generando timeline para plan existente:', timelinePayload);
 
@@ -400,6 +407,13 @@ export default function DashboardScreen({ navigation, route }) {
       // Verificar si la respuesta es JSON válida
       const contentType = response.headers.get('content-type');
       let result;
+
+      // Manejar error 502 específicamente
+      if (response.status === 502) {
+        const textResponse = await response.text();
+        console.error('Timeline Lambda timeout/error (502):', textResponse);
+        throw new Error('El servidor tardó demasiado en generar el timeline.\n\nPuedes intentar:\n1. Usar gemini-2.5-flash en lugar de pro\n2. Crear un plan con menos días\n3. Contactar soporte técnico');
+      }
 
       if (contentType && contentType.includes('application/json')) {
         result = await response.json();

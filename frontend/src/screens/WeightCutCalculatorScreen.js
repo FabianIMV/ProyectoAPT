@@ -32,7 +32,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
     combatSport: 'boxeo',
     trainingSessionsPerWeek: '',
     trainingSessionsPerDay: '',
-    model: 'gemini-2.5-flash'
+    model: 'gemini-2.5-pro' // Cambiado a Pro como preferido
   });
 
   const [errors, setErrors] = useState({});
@@ -406,10 +406,22 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
       clearTimeout(timeoutId);
 
+      // Verificar el Content-Type de la respuesta
+      const contentType = response.headers.get('content-type');
+      console.log('Response status:', response.status);
+      console.log('Response content-type:', contentType);
+
       if (!response.ok) {
         const errorData = await response.text();
         console.error('Error response:', errorData);
         throw new Error(`HTTP ${response.status}: ${errorData}`);
+      }
+
+      // Verificar que la respuesta sea JSON
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('Expected JSON but got:', textResponse.substring(0, 200));
+        throw new Error('El servidor no devolvió un JSON válido. Por favor verifica el backend.');
       }
 
       const result = await response.json();
@@ -428,17 +440,23 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
     } catch (error) {
       console.error('Error analyzing weight cut:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
 
       let errorMessage = 'No se pudo analizar el plan de corte. Intenta nuevamente.';
 
       if (error.name === 'AbortError') {
         errorMessage = 'La petición tardó demasiado. Verifica tu conexión a internet.';
+      } else if (error.name === 'SyntaxError' || error.message.includes('JSON')) {
+        errorMessage = 'Error al procesar la respuesta del servidor. Por favor verifica que el backend esté funcionando correctamente y devolviendo JSON.';
       } else if (error.message.includes('400')) {
         errorMessage = 'Datos inválidos. Verifica que el peso objetivo sea menor al actual.';
-      } else if (error.message.includes('502')) {
+      } else if (error.message.includes('502') || error.message.includes('500')) {
         errorMessage = 'Error del servidor. Por favor intenta nuevamente en unos momentos.';
-      } else if (error.message.includes('Network')) {
-        errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+      } else if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet y que el servidor backend esté corriendo.';
+      } else if (error.message.includes('JSON válido')) {
+        errorMessage = error.message; // Usar el mensaje personalizado
       }
 
       Alert.alert('Error de análisis', errorMessage);
@@ -508,13 +526,46 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           </View>
 
           {showStartDatePicker && (
-            <DateTimePicker
-              value={formData.startDate || new Date()}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleStartDateChange}
-              minimumDate={new Date()}
-            />
+            Platform.OS === 'ios' ? (
+              <Modal
+                visible={showStartDatePicker}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowStartDatePicker(false)}
+              >
+                <View style={styles.datePickerModalOverlay}>
+                  <View style={styles.datePickerModalContent}>
+                    <View style={styles.datePickerHeader}>
+                      <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
+                        <Text style={styles.datePickerCancelButton}>Cancelar</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.datePickerTitle}>Fecha de Inicio</Text>
+                      <TouchableOpacity onPress={() => setShowStartDatePicker(false)}>
+                        <Text style={styles.datePickerDoneButton}>Listo</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <DateTimePicker
+                      value={formData.startDate || new Date()}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleStartDateChange}
+                      minimumDate={new Date()}
+                      textColor={COLORS.text}
+                      themeVariant="dark"
+                      style={styles.datePickerIOS}
+                    />
+                  </View>
+                </View>
+              </Modal>
+            ) : (
+              <DateTimePicker
+                value={formData.startDate || new Date()}
+                mode="date"
+                display="default"
+                onChange={handleStartDateChange}
+                minimumDate={new Date()}
+              />
+            )
           )}
 
           {/* FECHA DEL PESAJE */}
@@ -542,13 +593,46 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           </View>
 
           {showWeighInDatePicker && formData.startDate && (
-            <DateTimePicker
-              value={formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000)}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={handleWeighInDateChange}
-              minimumDate={new Date(formData.startDate.getTime() + 24 * 60 * 60 * 1000)}
-            />
+            Platform.OS === 'ios' ? (
+              <Modal
+                visible={showWeighInDatePicker}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setShowWeighInDatePicker(false)}
+              >
+                <View style={styles.datePickerModalOverlay}>
+                  <View style={styles.datePickerModalContent}>
+                    <View style={styles.datePickerHeader}>
+                      <TouchableOpacity onPress={() => setShowWeighInDatePicker(false)}>
+                        <Text style={styles.datePickerCancelButton}>Cancelar</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.datePickerTitle}>Fecha del Pesaje</Text>
+                      <TouchableOpacity onPress={() => setShowWeighInDatePicker(false)}>
+                        <Text style={styles.datePickerDoneButton}>Listo</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <DateTimePicker
+                      value={formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000)}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleWeighInDateChange}
+                      minimumDate={new Date(formData.startDate.getTime() + 24 * 60 * 60 * 1000)}
+                      textColor={COLORS.text}
+                      themeVariant="dark"
+                      style={styles.datePickerIOS}
+                    />
+                  </View>
+                </View>
+              </Modal>
+            ) : (
+              <DateTimePicker
+                value={formData.weighInDate || new Date(formData.startDate.getTime() + 7 * 24 * 60 * 60 * 1000)}
+                mode="date"
+                display="default"
+                onChange={handleWeighInDateChange}
+                minimumDate={new Date(formData.startDate.getTime() + 24 * 60 * 60 * 1000)}
+              />
+            )
           )}
 
           {/* HORA DEL PESAJE (OBLIGATORIO) */}
@@ -1213,5 +1297,44 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.secondary,
+  },
+  // iOS Date Picker Modal Styles
+  datePickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  datePickerModalContent: {
+    backgroundColor: COLORS.accent,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 40,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.primary,
+  },
+  datePickerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  datePickerCancelButton: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
+  datePickerDoneButton: {
+    fontSize: 16,
+    color: COLORS.secondary,
+    fontWeight: '600',
+  },
+  datePickerIOS: {
+    backgroundColor: COLORS.accent,
+    height: 200,
   },
 });

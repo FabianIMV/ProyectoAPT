@@ -184,6 +184,22 @@ export default function ActivateTimelineScreen({ route, navigation }) {
       });
 
       clearTimeout(timeoutId);
+
+      // Manejar error 502 específicamente
+      if (response.status === 502) {
+        const textResponse = await response.text();
+        console.error('Timeline Lambda timeout/error (502):', textResponse);
+        throw new Error('El servidor tardó demasiado en generar el timeline.\n\nIntenta con menos días o usando gemini-2.5-flash.');
+      }
+
+      // Verificar Content-Type
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await response.text();
+        console.error('Expected JSON but got:', textResponse.substring(0, 200));
+        throw new Error('El servidor no devolvió un JSON válido.');
+      }
+
       const result = await response.json();
 
       if (response.ok && result.success) {

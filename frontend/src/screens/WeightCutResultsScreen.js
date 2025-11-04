@@ -144,9 +144,21 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         body: JSON.stringify(payload),
       });
 
+      // Verificar Content-Type antes de parsear JSON
+      const storeContentType = storeResponse.headers.get('content-type');
+      console.log('Store Response status:', storeResponse.status);
+      console.log('Store Response content-type:', storeContentType);
+
       if (!storeResponse.ok) {
         const errorData = await storeResponse.text();
+        console.error('Store Error response:', errorData);
         throw new Error(`HTTP ${storeResponse.status}: ${errorData}`);
+      }
+
+      if (!storeContentType || !storeContentType.includes('application/json')) {
+        const textResponse = await storeResponse.text();
+        console.error('Expected JSON but got:', textResponse.substring(0, 200));
+        throw new Error('El servidor no devolvió un JSON válido al guardar. Verifica el backend.');
       }
 
       const storeResult = await storeResponse.json();
@@ -158,7 +170,6 @@ export default function WeightCutResultsScreen({ route, navigation }) {
       setTimelineProgress(`Generando timeline de ${formData.daysToCut} días...`);
 
       // Construir payload del timeline
-      // IMPORTANTE: NO enviar weighInTime aquí - el backend lo lee del plan guardado
       const timelinePayload = {
         userId: userId,
       };
@@ -176,8 +187,8 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         }
       }
 
-      // Enviar timezone (opcional)
-      timelinePayload.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Santiago';
+      // NO enviar weighInTime ni timezone - el backend lo obtiene del plan guardado
+      // Esto evita el timeout cuando el backend intenta generar día parcial
 
       console.log('📅 Generando timeline:', timelinePayload);
 
@@ -188,6 +199,85 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         },
         body: JSON.stringify(timelinePayload),
       });
+
+      // Verificar Content-Type antes de parsear JSON
+      const contentType = timelineResponse.headers.get('content-type');
+      console.log('Timeline Response status:', timelineResponse.status);
+      console.log('Timeline Response content-type:', contentType);
+
+      // Manejar error 502 específicamente - El Lambda está procesando pero tardará más
+      if (timelineResponse.status === 502) {
+        const textResponse = await timelineResponse.text();
+        console.error('Timeline Lambda timeout/error (502):', textResponse);
+
+        // El backend está generando el timeline pero tardará más de 60s
+        // Intentar verificar si se completó después de unos segundos
+        console.log('⏳ Timeline en proceso, verificando en 10 segundos...');
+        setTimelineProgress('El servidor está procesando... verificando en 10s');
+
+        await new Promise(resolve => setTimeout(resolve, 10000)); // Esperar 10 segundos
+
+        // Verificar si el timeline ya se generó consultando el endpoint de timeline
+        try {
+          console.log('🔍 Verificando si el timeline se completó...');
+          setTimelineProgress('Verificando si el timeline se completó...');
+
+          const checkResponse = await fetch(WEIGHT_CUT_API.getTimeline(userId));
+
+          if (checkResponse.ok) {
+            const checkResult = await checkResponse.json();
+
+            if (checkResult.success && checkResult.data && checkResult.data.length > 0) {
+              console.log('✅ Timeline encontrado después del timeout!');
+
+              // Simular resultado exitoso
+              const timelineResult = {
+                success: true,
+                message: 'Timeline generado exitosamente (recuperado después de timeout)',
+                timeline: checkResult.data
+              };
+
+              Alert.alert(
+                '✅ Timeline Generado',
+                'Tu plan de corte de peso y timeline diario han sido creados exitosamente.\n\n(El servidor tardó más de lo esperado pero completó el proceso)',
+                [
+                  {
+                    text: 'Ver Dashboard',
+                    onPress: () => {
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Main' }],
+                      });
+                    }
+                  }
+                ]
+              );
+
+              setIsSaving(false);
+              setIsGeneratingTimeline(false);
+              setTimelineProgress('');
+              return; // Salir exitosamente
+            }
+          }
+        } catch (checkError) {
+          console.log('❌ No se pudo verificar el timeline:', checkError);
+        }
+
+        // Si llegamos aquí, el timeline no se completó aún
+        throw new Error('El servidor está tardando en generar el timeline.\n\nTu plan SÍ fue guardado. Por favor espera 1-2 minutos y verifica desde el Dashboard si el timeline se generó.');
+      }
+
+      if (!timelineResponse.ok) {
+        const errorText = await timelineResponse.text();
+        console.error('Timeline error response:', errorText);
+        throw new Error(`Error ${timelineResponse.status}: ${errorText}`);
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        const textResponse = await timelineResponse.text();
+        console.error('Expected JSON but got:', textResponse.substring(0, 200));
+        throw new Error('El servidor no devolvió un JSON válido para el timeline. Verifica el backend.');
+      }
 
       const timelineResult = await timelineResponse.json();
 
