@@ -1,22 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, Animated } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { WEIGHT_CUT_API } from '../config/api';
+import { WEIGHT_CUT_API, NUTRITION_API } from '../config/api';
 import { getDayProgress } from '../services/progressService';
 import { calculateCurrentDayIndex, formatTime } from '../utils/dateUtils';
 
 const { width } = Dimensions.get('window');
 
 export default function NutritionTrackingScreen({ navigation }) {
-  const { userId } = useAuth();
+  const { userId, user } = useAuth();
   const [currentDayData, setCurrentDayData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dayProgress, setDayProgress] = useState(null);
   const [timelineId, setTimelineId] = useState(null);
   const [currentDayNumber, setCurrentDayNumber] = useState(null);
+  const [timeline, setTimeline] = useState(null);
+  const [aiRecommendations, setAiRecommendations] = useState(null);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     loadTimelineData();
@@ -31,18 +36,19 @@ export default function NutritionTrackingScreen({ navigation }) {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
-          const timeline = result.data;
-          setTimelineId(timeline.id);
+          const timelineData = result.data;
+          setTimeline(timelineData); // Guardar timeline completo
+          setTimelineId(timelineData.id);
 
-          const dayIndex = calculateCurrentDayIndex(timeline.start_date, timeline.total_days);
+          const dayIndex = calculateCurrentDayIndex(timelineData.start_date, timelineData.total_days);
 
           if (dayIndex !== null && dayIndex >= 0 && dayIndex !== 'completed') {
             const dayNum = dayIndex + 1;
             setCurrentDayNumber(dayNum);
-            setCurrentDayData(timeline.timeline_data.days[dayIndex]);
+            setCurrentDayData(timelineData.timeline_data.days[dayIndex]);
 
             // Cargar progreso del día
-            const progressResult = await getDayProgress(userId, timeline.id, dayNum);
+            const progressResult = await getDayProgress(userId, timelineData.id, dayNum);
             if (progressResult.success) {
               setDayProgress(progressResult.data);
             }
@@ -53,6 +59,71 @@ export default function NutritionTrackingScreen({ navigation }) {
       console.error('Error cargando timeline:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Cargar recomendaciones con IA
+  const loadAIRecommendations = async () => {
+    if (!currentDayData || !dayProgress || !timeline) {
+      console.log('⚠️ Faltan datos para generar recomendaciones');
+      return;
+    }
+
+    setLoadingRecommendations(true);
+
+    try {
+      const response = await fetch(NUTRITION_API.recommendations, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          caloriesConsumed: totalCalories,
+          caloriesTarget: targetCalories,
+          proteinConsumed: totalProtein,
+          proteinTarget: targetProtein,
+          carbsConsumed: totalCarbs,
+          carbsTarget: targetCarbs,
+          fatsConsumed: totalFats,
+          fatsTarget: targetFats,
+          currentPhase: currentDayData.phase,
+          dayNumber: currentDayNumber,
+          totalDays: timeline.total_days,
+          sport: timeline.analysis_request?.combatSport || 'deportes de combate',
+          userAge: user?.age || 25,
+          userWeight: timeline.analysis_request?.currentWeightKg || 70,
+          meals: meals.map(m => ({
+            name: m.name,
+            calories: m.calories,
+            protein: m.protein,
+            carbs: m.carbs,
+            fats: m.fats
+          }))
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setAiRecommendations(result.data);
+          setShowRecommendations(true);
+
+          // Animación de entrada
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true
+          }).start();
+
+          console.log('✅ Recomendaciones cargadas:', result.data);
+        }
+      } else {
+        console.error('❌ Error en respuesta:', response.status);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando recomendaciones:', error);
+    } finally {
+      setLoadingRecommendations(false);
     }
   };
 
@@ -176,18 +247,19 @@ export default function NutritionTrackingScreen({ navigation }) {
   const formatMealTime = (timestamp) => formatTime(timestamp);
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[COLORS.secondary]}
-          tintColor={COLORS.secondary}
-        />
-      }
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.secondary]}
+            tintColor={COLORS.secondary}
+          />
+        }
+      >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
@@ -286,6 +358,88 @@ export default function NutritionTrackingScreen({ navigation }) {
         </View>
       )}
 
+      {/* AI Recommendations eliminadas - ahora se usa el botón flotante */}
+      {false && !isLoading && currentDayData && meals.length > 0 && (
+        <View style={styles.aiRecommendationsContainer}>
+          {showRecommendations && aiRecommendations && (
+            <Animated.View style={[styles.aiRecommendationsCard, { opacity: fadeAnim }]}>
+              {/* Header con emoji y título */}
+              <View style={[
+                styles.aiRecommendationsHeader,
+                {
+                  backgroundColor: aiRecommendations.severity === 'danger' ? '#FF6B6B20' :
+                                   aiRecommendations.severity === 'warning' ? '#FF980020' :
+                                   aiRecommendations.severity === 'success' ? '#4CAF5020' : '#2196F320'
+                }
+              ]}>
+                <Text style={styles.aiRecommendationsEmoji}>{aiRecommendations.emoji}</Text>
+                <Text style={[
+                  styles.aiRecommendationsTitle,
+                  {
+                    color: aiRecommendations.severity === 'danger' ? '#FF6B6B' :
+                           aiRecommendations.severity === 'warning' ? '#FF9800' :
+                           aiRecommendations.severity === 'success' ? '#4CAF50' : '#2196F3'
+                  }
+                ]}>
+                  {aiRecommendations.title}
+                </Text>
+              </View>
+
+              {/* Mensaje principal */}
+              <Text style={styles.aiRecommendationsMessage}>
+                {aiRecommendations.message}
+              </Text>
+
+              {/* Recomendaciones lista */}
+              <View style={styles.aiRecommendationsList}>
+                <Text style={styles.aiRecommendationsListTitle}>Recomendaciones:</Text>
+                {aiRecommendations.recommendations.map((rec, index) => (
+                  <View key={index} style={styles.aiRecommendationItem}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={18}
+                      color={COLORS.secondary}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.aiRecommendationText}>{rec}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Siguiente comida sugerida */}
+              {aiRecommendations.nextMealSuggestion && (
+                <View style={styles.aiNextMealCard}>
+                  <Text style={styles.aiNextMealTitle}>
+                    💡 Próxima Comida Sugerida:
+                  </Text>
+                  <Text style={styles.aiNextMealType}>
+                    {aiRecommendations.nextMealSuggestion.type}
+                  </Text>
+                  <Text style={styles.aiNextMealCalories}>
+                    ~{aiRecommendations.nextMealSuggestion.calories} calorías
+                  </Text>
+                  <Text style={styles.aiNextMealExamplesTitle}>Ejemplos:</Text>
+                  {aiRecommendations.nextMealSuggestion.examples.map((example, index) => (
+                    <Text key={index} style={styles.aiNextMealExample}>
+                      • {example}
+                    </Text>
+                  ))}
+                </View>
+              )}
+
+              {/* Frase motivacional */}
+              {aiRecommendations.motivationalQuote && (
+                <View style={styles.aiMotivationalQuote}>
+                  <Text style={styles.aiMotivationalQuoteText}>
+                    "{aiRecommendations.motivationalQuote}"
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
+          )}
+        </View>
+      )}
+
       {/* Meals List */}
       <View style={styles.mealsSection}>
         <View style={styles.sectionHeader}>
@@ -363,6 +517,16 @@ export default function NutritionTrackingScreen({ navigation }) {
 
       <View style={styles.bottomSpacing} />
     </ScrollView>
+
+    {/* Floating Feedback Button */}
+    <TouchableOpacity
+      style={styles.feedbackFloatingButton}
+      onPress={() => navigation.navigate('NutritionFeedback', { timelineId, dayNumber: currentDayNumber })}
+      activeOpacity={0.8}
+    >
+      <Ionicons name="bulb" size={28} color="#fff" />
+    </TouchableOpacity>
+  </View>
   );
 }
 
@@ -370,6 +534,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -675,5 +842,151 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     lineHeight: 18,
+  },
+  // AI Recommendations Styles
+  aiRecommendationsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  aiRecommendationsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.secondary,
+    borderRadius: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  aiRecommendationsButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  aiRecommendationsCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    marginBottom: 15,
+  },
+  aiRecommendationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 15,
+  },
+  aiRecommendationsEmoji: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  aiRecommendationsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  aiRecommendationsMessage: {
+    fontSize: 15,
+    color: COLORS.text,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  aiRecommendationsList: {
+    marginBottom: 20,
+  },
+  aiRecommendationsListTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  aiRecommendationItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+    paddingLeft: 5,
+  },
+  aiRecommendationText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+    flex: 1,
+  },
+  aiNextMealCard: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  aiNextMealTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  aiNextMealType: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginBottom: 4,
+  },
+  aiNextMealCalories: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+  },
+  aiNextMealExamplesTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  aiNextMealExample: {
+    fontSize: 13,
+    color: COLORS.text,
+    marginLeft: 10,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+  aiMotivationalQuote: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 15,
+    padding: 15,
+    borderTopWidth: 3,
+    borderTopColor: COLORS.secondary,
+  },
+  aiMotivationalQuoteText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: COLORS.text,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Floating Feedback Button
+  feedbackFloatingButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    backgroundColor: COLORS.secondary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

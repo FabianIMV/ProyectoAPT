@@ -42,3 +42,13 @@ export const PROGRESS_API = {
   skip: (userId, timelineId, dayNumber) =>
     `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/progress/skip?userId=${userId}&timelineId=${timelineId}&dayNumber=${dayNumber}`,
 };
+
+// Nutrition AI Recommendations API
+export const NUTRITION_API = {
+  recommendations: `${API_ENDPOINTS.WEIGHT_CUT_BASE}/nutrition/recommendations`,
+};
+
+// Nutrition Feedback AI API (Tu propia Lambda)
+export const NUTRITION_FEEDBACK_API = {
+  getDailyFeedback: 'https://h55beo5bczum5yyf7d2glpkgda0lgjiq.lambda-url.us-east-1.on.aws',
+};

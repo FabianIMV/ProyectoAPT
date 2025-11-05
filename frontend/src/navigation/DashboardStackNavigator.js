@@ -4,6 +4,7 @@ import { COLORS } from '../styles/colors';
 
 import DashboardScreen from '../screens/DashboardScreen';
 import NutritionTrackingScreen from '../screens/NutritionTrackingScreen';
+import NutritionFeedbackScreen from '../screens/NutritionFeedbackScreen';
 import RecommendationsScreen from '../screens/RecommendationsScreen';
 import StatsScreen from '../screens/StatsScreen';
 import ActivePlanDetailsScreen from '../screens/ActivePlanDetailsScreen';
@@ -21,6 +22,7 @@ export default function DashboardStackNavigator() {
     >
       <Stack.Screen name="DashboardHome" component={DashboardScreen} />
       <Stack.Screen name="NutritionTracking" component={NutritionTrackingScreen} />
+      <Stack.Screen name="NutritionFeedback" component={NutritionFeedbackScreen} />
       <Stack.Screen name="Recommendations" component={RecommendationsScreen} />
       <Stack.Screen name="Stats" component={StatsScreen} />
       <Stack.Screen name="ActivePlanDetails" component={ActivePlanDetailsScreen} />
