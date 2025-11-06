@@ -44,6 +44,7 @@ export default function DashboardScreen({ navigation, route }) {
   const [yesterdayProgressData, setYesterdayProgressData] = useState(null);
   const [isPlanExpanded, setIsPlanExpanded] = useState(false);
   const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState([]); // Array de todas las recomendaciones
 
   useEffect(() => {
     if (userId && user) {
@@ -81,6 +82,15 @@ export default function DashboardScreen({ navigation, route }) {
 
     return unsubscribe;
   }, [navigation, userId, user]);
+
+  // Listener para recibir recomendaciones aceptadas desde NutritionFeedback
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // No hacer nada, solo escuchar
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   // Cargar agua cuando tengamos timelineId y currentDayNumber
   useEffect(() => {
@@ -227,9 +237,39 @@ export default function DashboardScreen({ navigation, route }) {
 
             const waterLiters = result.data.actualWaterLiters || result.data.actual_water_liters || 0;
             setDailyWaterIntake(waterLiters);
+
+            // Buscar TODAS las recomendaciones IA en las notas
+            const notes = result.data.notes || result.data.day_notes;
+            if (notes) {
+              try {
+                const lines = typeof notes === 'string' ? notes.split('\n').filter(line => line.trim()) : [];
+                const allRecommendations = [];
+
+                // Buscar todas las entradas de recomendaciones IA
+                for (let i = lines.length - 1; i >= 0; i--) {
+                  const line = lines[i];
+                  const match = line.match(/^\[[\d:]+\]\s*(.+)$/);
+                  const jsonString = match ? match[1].trim() : line.trim();
+
+                  try {
+                    const parsed = JSON.parse(jsonString);
+                    if (parsed.type === 'ai_recommendations') {
+                      allRecommendations.push(parsed);
+                    }
+                  } catch (e) {
+                    // No es JSON válido, continuar
+                  }
+                }
+
+                setAiRecommendations(allRecommendations); // Guardar todas
+              } catch (error) {
+                console.log('Error parseando notas para recomendaciones IA:', error);
+              }
+            }
           } else if (result.notFound) {
             setDailyWaterIntake(0);
             setDailyProgressData(null);
+            setAiRecommendations([]);
           }
 
           // Si es día 2 o posterior, cargar progreso del día anterior para obtener el peso
@@ -566,18 +606,19 @@ export default function DashboardScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[COLORS.secondary]}
-          tintColor={COLORS.secondary}
-        />
-      }
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.secondary]}
+            tintColor={COLORS.secondary}
+          />
+        }
+      >
       {/* Modal de recordatorio de peso */}
       {showWeightReminder && currentDayNumber > 1 && (
         <View style={styles.reminderOverlay}>
@@ -801,6 +842,7 @@ export default function DashboardScreen({ navigation, route }) {
 
       {/* 2. PLAN DEL DÍA - Colapsable */}
       {currentDayData && (
+        <>
         <TouchableOpacity
           style={styles.todayCard}
           onPress={() => setIsPlanExpanded(!isPlanExpanded)}
@@ -873,15 +915,61 @@ export default function DashboardScreen({ navigation, route }) {
                   </Text>
                 </View>
               )}
-
-              <View style={styles.todayRecommendations}>
-                <Text style={styles.todayRecommendationsTitle}>Recomendaciones del Día</Text>
-                <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
-                <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.hydrationNote}</Text>
-              </View>
             </View>
           )}
         </TouchableOpacity>
+
+        {/* Recomendaciones FUERA del TouchableOpacity para permitir scroll */}
+        {isPlanExpanded && currentDayData && (
+          <View style={[styles.todayCard, { marginTop: 10 }]}>
+            <Text style={styles.todayRecommendationsTitle}>Recomendaciones del Día</Text>
+
+            {/* Carousel de recomendaciones */}
+            <Text style={styles.carouselHint}>Desliza para ver más</Text>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.recommendationsCarousel}
+              contentContainerStyle={styles.carouselContent}
+              decelerationRate="fast"
+              snapToInterval={Dimensions.get('window').width - 60}
+              snapToAlignment="center"
+            >
+              {/* Recomendaciones IA (PRIMERO - todas las que existen) */}
+              {aiRecommendations && aiRecommendations.length > 0 && aiRecommendations.map((recommendation, idx) => (
+                <View key={idx} style={styles.carouselCard}>
+                  <View style={styles.aiRecommendationsBadge}>
+                    <View style={styles.aiRecommendationsHeader}>
+                      <Ionicons name="sparkles" size={18} color={COLORS.secondary} />
+                      <Text style={styles.aiRecommendationsLabel}>Recomendaciones IA {aiRecommendations.length > 1 ? `(${idx + 1}/${aiRecommendations.length})` : ''}</Text>
+                    </View>
+                    <Text style={styles.aiRecommendationsTimestamp}>
+                      {new Date(recommendation.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </Text>
+                    <Text style={styles.todayRecommendationText}>{recommendation.message}</Text>
+                    {recommendation.actions && recommendation.actions.slice(0, 3).map((action, index) => (
+                      <Text key={index} style={styles.aiActionItem}>• {action}</Text>
+                    ))}
+                  </View>
+                </View>
+              ))}
+
+              {/* Recomendaciones del Plan (SEGUNDO) */}
+              <View style={styles.carouselCard}>
+                <View style={styles.timelineRecommendationsCard}>
+                  <View style={styles.timelineRecommendationsHeader}>
+                    <Ionicons name="calendar" size={18} color={COLORS.text} />
+                    <Text style={styles.timelineRecommendationsLabel}>Recomendaciones del Plan</Text>
+                  </View>
+                  <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
+                  <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.hydrationNote}</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        )}
+        </>
       )}
 
       {dashboardData && !currentDayData && (
@@ -963,7 +1051,30 @@ export default function DashboardScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.bottomSpacing} />
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+
+      {/* Botón Flotante de Recomendaciones IA */}
+      {currentDayData && timelineId && currentDayNumber && (
+        <TouchableOpacity
+          style={styles.aiFloatingButton}
+          onPress={() => navigation.navigate('NutritionFeedback', {
+            timelineId: timelineId,
+            dayNumber: currentDayNumber,
+            onAccept: (recommendations) => {
+              const newRecommendation = {
+                ...recommendations,
+                timestamp: new Date().toISOString()
+              };
+              // Agregar al inicio del array (más reciente primero)
+              setAiRecommendations(prev => [newRecommendation, ...prev]);
+            }
+          })}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="bulb" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
 
       <WaterIntakeModal
         visible={waterModalVisible}
@@ -979,7 +1090,7 @@ export default function DashboardScreen({ navigation, route }) {
         loading={savingWeight}
         currentDay={currentDayNumber}
       />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -987,6 +1098,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: 20,
@@ -1543,6 +1657,83 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 18,
   },
+  // Carousel de recomendaciones
+  carouselHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  recommendationsCarousel: {
+    marginTop: 10,
+    marginHorizontal: -20, // Compensar padding del contenedor padre
+  },
+  carouselContent: {
+    paddingHorizontal: 20,
+  },
+  carouselCard: {
+    width: Dimensions.get('window').width - 80, // Ajustado para márgenes
+    marginHorizontal: 10,
+  },
+  // Recomendaciones IA Badge
+  aiRecommendationsBadge: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 18, // Más padding
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+    minHeight: 200,
+  },
+  aiRecommendationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  aiRecommendationsLabel: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+  },
+  aiRecommendationsTimestamp: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
+  },
+  aiActionItem: {
+    fontSize: 13,
+    color: COLORS.text,
+    marginLeft: 5,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  // Recomendaciones del timeline
+  timelineRecommendationsCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 18,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.text,
+    minHeight: 200,
+  },
+  timelineRecommendationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  timelineRecommendations: {
+    marginTop: 0,
+  },
+  timelineRecommendationsLabel: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  singleRecommendation: {
+    marginTop: 10,
+  },
   reminderOverlay: {
     position: 'absolute',
     top: 0,
@@ -1847,5 +2038,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#4CAF50',
     fontWeight: '600',
+  },
+  aiButtonIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  aiButtonText: {
+    fontSize: 11,
+    color: COLORS.secondary,
+    fontWeight: '600',
+  },
+  // Botón flotante de IA
+  aiFloatingButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    backgroundColor: '#9C27B0',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

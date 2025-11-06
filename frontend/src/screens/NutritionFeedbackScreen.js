@@ -19,6 +19,7 @@ import {
   getDailyNutritionFeedbackWithRetry,
   getLocalFallbackFeedback
 } from '../services/nutritionFeedbackService';
+import { saveAIRecommendations } from '../services/progressService';
 import FeedbackCard from '../components/FeedbackCard';
 
 const { width, height } = Dimensions.get('window');
@@ -32,12 +33,14 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
   const [error, setError] = useState(null);
   const [cachedFeedback, setCachedFeedback] = useState(null);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [accepting, setAccepting] = useState(false);
 
   const userName = user?.full_name?.split(' ')[0] || user?.name || 'Atleta';
 
   // Parámetros opcionales desde navegación
   const timelineId = route?.params?.timelineId;
   const dayNumber = route?.params?.dayNumber;
+  const onAccept = route?.params?.onAccept;
 
   useEffect(() => {
     loadCachedFeedback();
@@ -145,14 +148,60 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
     setRefreshing(false);
   };
 
+  // Aceptar recomendaciones y guardar
+  const handleAcceptRecommendations = async () => {
+    if (!feedback || !userId || !timelineId || !dayNumber) {
+      Alert.alert('Error', 'Faltan datos para guardar las recomendaciones');
+      return;
+    }
+
+    setAccepting(true);
+
+    try {
+      const result = await saveAIRecommendations(userId, timelineId, dayNumber, feedback);
+
+      if (result.success) {
+        Alert.alert(
+          'Recomendaciones Guardadas',
+          'Las recomendaciones personalizadas ahora aparecen en tu Plan del Día',
+          [
+            {
+              text: 'Ver en Dashboard',
+              onPress: () => {
+                // Llamar callback si existe
+                if (onAccept) {
+                  onAccept(feedback);
+                }
+                navigation.goBack();
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', result.error || 'No se pudieron guardar las recomendaciones');
+      }
+    } catch (error) {
+      console.error('Error guardando recomendaciones:', error);
+      Alert.alert('Error', 'Ocurrió un error al guardar las recomendaciones');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
   // Render: Estado vacío
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="bulb-outline" size={80} color={COLORS.textSecondary} />
-      <Text style={styles.emptyTitle}>¿Cómo va tu día?</Text>
+      <View style={styles.aiIconContainer}>
+        <Ionicons name="bulb" size={100} color={COLORS.secondary} />
+        <View style={styles.aiSparkle}>
+          <Ionicons name="sparkles" size={40} color={COLORS.secondary} />
+        </View>
+      </View>
+      <Text style={styles.emptyTitle}>Feedback Nutricional IA</Text>
       <Text style={styles.emptySubtitle}>
-        Obtén feedback inteligente sobre tu progreso nutricional del día
+        Análisis personalizado de tu progreso diario en calorías e hidratación
       </Text>
+
       <TouchableOpacity
         style={styles.getFeedbackButton}
         onPress={fetchFeedback}
@@ -162,13 +211,28 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           <ActivityIndicator color="#fff" />
         ) : (
           <>
-            <Ionicons name="sparkles" size={24} color="#fff" />
+            <Ionicons name="analytics" size={28} color="#fff" />
             <Text style={styles.getFeedbackButtonText}>
-              🤖 Obtener Feedback del Día
+              Generar Análisis IA
             </Text>
           </>
         )}
       </TouchableOpacity>
+
+      <View style={styles.featuresList}>
+        <View style={styles.featureItem}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+          <Text style={styles.featureText}>Evaluación de calorías e hidratación</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+          <Text style={styles.featureText}>Recomendaciones personalizadas</Text>
+        </View>
+        <View style={styles.featureItem}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+          <Text style={styles.featureText}>Sugerencias de próxima comida</Text>
+        </View>
+      </View>
 
       {cachedFeedback && (
         <TouchableOpacity
@@ -252,6 +316,24 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           <Animated.View style={{ opacity: fadeAnim }}>
             <FeedbackCard feedback={feedback} userName={userName} />
 
+            {/* Botón para aceptar recomendaciones */}
+            {timelineId && dayNumber && (
+              <TouchableOpacity
+                style={styles.acceptButton}
+                onPress={handleAcceptRecommendations}
+                disabled={accepting || loading}
+              >
+                {accepting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                    <Text style={styles.acceptButtonText}>Aceptar Recomendaciones</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
             {/* Botón para nuevo análisis */}
             <TouchableOpacity
               style={styles.newAnalysisButton}
@@ -313,8 +395,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: height * 0.15,
   },
+  aiIconContainer: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  aiSparkle: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+  },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: COLORS.text,
     marginTop: 24,
@@ -326,6 +417,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
+  },
+  featuresList: {
+    marginTop: 30,
+    width: '100%',
+    alignItems: 'flex-start',
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 10,
+  },
+  featureText: {
+    fontSize: 14,
+    color: COLORS.text,
   },
   getFeedbackButton: {
     flexDirection: 'row',
@@ -414,6 +520,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  acceptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 20,
+    shadowColor: COLORS.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
   newAnalysisButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -422,7 +549,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
-    marginTop: 20,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: COLORS.secondary,
   },

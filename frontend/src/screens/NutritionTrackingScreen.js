@@ -517,15 +517,6 @@ export default function NutritionTrackingScreen({ navigation }) {
 
       <View style={styles.bottomSpacing} />
     </ScrollView>
-
-    {/* Floating Feedback Button */}
-    <TouchableOpacity
-      style={styles.feedbackFloatingButton}
-      onPress={() => navigation.navigate('NutritionFeedback', { timelineId, dayNumber: currentDayNumber })}
-      activeOpacity={0.8}
-    >
-      <Ionicons name="bulb" size={28} color="#fff" />
-    </TouchableOpacity>
   </View>
   );
 }

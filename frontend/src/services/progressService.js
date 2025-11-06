@@ -267,3 +267,24 @@ export const addCardioProgress = async (userId, timelineId, dayNumber, minutes, 
     notes: `Cardio: ${minutes} min${usedSaunaSuit ? ' (con traje sauna)' : ''}`,
   });
 };
+
+/**
+ * Helper: Guarda recomendaciones IA aceptadas (wrapper sobre addDailyProgress)
+ */
+export const saveAIRecommendations = async (userId, timelineId, dayNumber, recommendations) => {
+  const aiEntry = {
+    type: 'ai_recommendations',
+    timestamp: new Date().toISOString(),
+    status: recommendations.status,
+    message: recommendations.message,
+    actions: recommendations.actions,
+    nextMeal: recommendations.nextMeal,
+    motivation: recommendations.motivation,
+    complianceScore: recommendations.complianceScore,
+    severity: recommendations.severity,
+  };
+
+  return await addDailyProgress(userId, timelineId, dayNumber, {
+    notes: JSON.stringify(aiEntry),
+  });
+};
