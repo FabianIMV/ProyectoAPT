@@ -937,23 +937,40 @@ export default function DashboardScreen({ navigation, route }) {
               snapToAlignment="center"
             >
               {/* Recomendaciones IA (PRIMERO - todas las que existen) */}
-              {aiRecommendations && aiRecommendations.length > 0 && aiRecommendations.map((recommendation, idx) => (
-                <View key={idx} style={styles.carouselCard}>
-                  <View style={styles.aiRecommendationsBadge}>
-                    <View style={styles.aiRecommendationsHeader}>
-                      <Ionicons name="sparkles" size={18} color={COLORS.secondary} />
-                      <Text style={styles.aiRecommendationsLabel}>Recomendaciones IA {aiRecommendations.length > 1 ? `(${idx + 1}/${aiRecommendations.length})` : ''}</Text>
+              {aiRecommendations && aiRecommendations.length > 0 && aiRecommendations.map((recommendation, idx) => {
+                const severity = recommendation.severity || 'normal';
+                const severityIcon = severity === 'danger' ? '⚠️' : severity === 'warning' ? '⚡' : '✓';
+                const severityColor = severity === 'danger' ? '#ff4444' : severity === 'warning' ? '#ffaa00' : '#4CAF50';
+
+                return (
+                  <View key={idx} style={styles.carouselCard}>
+                    <View style={styles.aiRecommendationsBadge}>
+                      <View style={styles.aiRecommendationsHeader}>
+                        <Text style={{ fontSize: 18, marginRight: 5 }}>{severityIcon}</Text>
+                        <Text style={styles.aiRecommendationsLabel}>Recomendaciones IA {aiRecommendations.length > 1 ? `(${idx + 1}/${aiRecommendations.length})` : ''}</Text>
+                      </View>
+                      <Text style={styles.aiRecommendationsTimestamp}>
+                        {new Date(recommendation.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                      <Text style={[styles.todayRecommendationText, { color: severityColor, fontWeight: '600', marginBottom: 10 }]}>
+                        {recommendation.status}
+                      </Text>
+                      <Text style={styles.todayRecommendationText}>{recommendation.message}</Text>
+                      {recommendation.actions && recommendation.actions.slice(0, 3).map((action, index) => {
+                        const hasGoodWord = /bien|excelente|perfecto|correcto|óptimo|bueno/i.test(action);
+                        const hasBadWord = /crítico|urgente|inmediatamente|peligro|inaceptable|bajo|mal/i.test(action);
+                        const actionColor = hasGoodWord ? '#4CAF50' : hasBadWord ? '#ff4444' : COLORS.text;
+
+                        return (
+                          <Text key={index} style={[styles.aiActionItem, { color: actionColor }]}>
+                            {hasBadWord ? '⚠️ ' : hasGoodWord ? '✓ ' : '• '}{action}
+                          </Text>
+                        );
+                      })}
                     </View>
-                    <Text style={styles.aiRecommendationsTimestamp}>
-                      {new Date(recommendation.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                    <Text style={styles.todayRecommendationText}>{recommendation.message}</Text>
-                    {recommendation.actions && recommendation.actions.slice(0, 3).map((action, index) => (
-                      <Text key={index} style={styles.aiActionItem}>• {action}</Text>
-                    ))}
                   </View>
-                </View>
-              ))}
+                );
+              })}
 
               {/* Recomendaciones del Plan (SEGUNDO) */}
               <View style={styles.carouselCard}>
