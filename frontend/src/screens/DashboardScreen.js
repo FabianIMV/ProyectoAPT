@@ -1075,20 +1075,38 @@ export default function DashboardScreen({ navigation, route }) {
       {/* Botón Flotante de Recomendaciones IA */}
       {currentDayData && timelineId && currentDayNumber && (
         <TouchableOpacity
-          style={styles.aiFloatingButton}
-          onPress={() => navigation.navigate('NutritionFeedback', {
-            timelineId: timelineId,
-            dayNumber: currentDayNumber,
-            onAccept: (recommendations) => {
-              const newRecommendation = {
-                ...recommendations,
-                timestamp: new Date().toISOString()
-              };
-              // Agregar al inicio del array (más reciente primero)
-              setAiRecommendations(prev => [newRecommendation, ...prev]);
+          style={[
+            styles.aiFloatingButton,
+            (!dailyProgressData?.actualCalories && !dailyProgressData?.actual_calories) && styles.aiFloatingButtonDisabled
+          ]}
+          onPress={() => {
+            // Validar que haya datos nutricionales ingresados
+            const hasCalories = dailyProgressData?.actualCalories || dailyProgressData?.actual_calories;
+
+            if (!hasCalories || hasCalories === 0) {
+              Alert.alert(
+                'Sin Datos Nutricionales',
+                'Debes registrar al menos una comida en "Seguimiento Nutricional" antes de obtener feedback de IA sobre tu progreso del día.',
+                [{ text: 'Entendido' }]
+              );
+              return;
             }
-          })}
+
+            navigation.navigate('NutritionFeedback', {
+              timelineId: timelineId,
+              dayNumber: currentDayNumber,
+              onAccept: (recommendations) => {
+                const newRecommendation = {
+                  ...recommendations,
+                  timestamp: new Date().toISOString()
+                };
+                // Agregar al inicio del array (más reciente primero)
+                setAiRecommendations(prev => [newRecommendation, ...prev]);
+              }
+            });
+          }}
           activeOpacity={0.8}
+          disabled={!dailyProgressData?.actualCalories && !dailyProgressData?.actual_calories}
         >
           <Ionicons name="bulb" size={28} color="#fff" />
         </TouchableOpacity>
@@ -2089,5 +2107,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  aiFloatingButtonDisabled: {
+    backgroundColor: COLORS.textSecondary,
+    opacity: 0.5,
   },
 });
