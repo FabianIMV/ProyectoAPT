@@ -161,13 +161,15 @@ export default function ProfileScreen({ navigation, route }) {
               </View>
               <View style={styles.statCard}>
                 <Ionicons name="resize" size={24} color={COLORS.secondary} />
-                <Text style={styles.statValue}>{profileData.height || '--'}</Text>
-                <Text style={styles.statLabel}>Altura (cm)</Text>
+                <Text style={styles.statValue}>
+                  {profileData.height ? (profileData.height / 100).toFixed(2) : '--'}
+                </Text>
+                <Text style={styles.statLabel}>Altura (m)</Text>
               </View>
               <View style={styles.statCard}>
                 <Ionicons name="calendar" size={24} color={COLORS.secondary} />
                 <Text style={styles.statValue}>{profileData.age || '--'}</Text>
-                <Text style={styles.statLabel}>Edad</Text>
+                <Text style={styles.statLabel}>Años</Text>
               </View>
             </View>
           </View>
