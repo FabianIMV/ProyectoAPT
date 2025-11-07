@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   Dimensions,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ScrollView
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -74,67 +75,75 @@ export default function WeightInputModal({ visible, onClose, onSubmit, loading, 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <TouchableOpacity 
           style={styles.dismissArea} 
           activeOpacity={1} 
           onPress={handleClose}
         />
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{contextualMessage.title}</Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={COLORS.text} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.content}>
-            <Text style={styles.subtitle}>{contextualMessage.subtitle}</Text>
-            <Text style={styles.info}>{contextualMessage.info}</Text>
-
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="74.5"
-                placeholderTextColor={COLORS.textSecondary}
-                keyboardType="decimal-pad"
-                value={weight}
-                onChangeText={setWeight}
-                autoFocus
-              />
-              <Text style={styles.unitLabel}>kg</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.header}>
+              <Text style={styles.title}>{contextualMessage.title}</Text>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
             </View>
 
-            {isValid && (
-              <View style={styles.summaryBox}>
-                <Ionicons name="scale" size={24} color={COLORS.secondary} />
-                <Text style={styles.summaryText}>
-                  Peso registrado:{' '}
-                  <Text style={styles.summaryAmount}>
-                    {parseFloat(weight).toFixed(1)}kg
-                  </Text>
-                </Text>
-              </View>
-            )}
-          </View>
+            <View style={styles.content}>
+              <Text style={styles.subtitle}>{contextualMessage.subtitle}</Text>
+              <Text style={styles.info}>{contextualMessage.info}</Text>
 
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[styles.submitButton, (!isValid || loading) && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={!isValid || loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={24} color="white" />
-                  <Text style={styles.submitButtonText}>Registrar Peso</Text>
-                </>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="74.5"
+                  placeholderTextColor={COLORS.textSecondary}
+                  keyboardType="decimal-pad"
+                  value={weight}
+                  onChangeText={setWeight}
+                  autoFocus
+                />
+                <Text style={styles.unitLabel}>kg</Text>
+              </View>
+
+              {isValid && (
+                <View style={styles.summaryBox}>
+                  <Ionicons name="scale" size={24} color={COLORS.secondary} />
+                  <Text style={styles.summaryText}>
+                    Peso registrado:{' '}
+                    <Text style={styles.summaryAmount}>
+                      {parseFloat(weight).toFixed(1)}kg
+                    </Text>
+                  </Text>
+                </View>
               )}
-            </TouchableOpacity>
+            </View>
+
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={[styles.submitButton, (!isValid || loading) && styles.submitButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={!isValid || loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={24} color="white" />
+                    <Text style={styles.submitButtonText}>Registrar Peso</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -149,11 +158,14 @@ const styles = StyleSheet.create({
   dismissArea: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
   modalContainer: {
     backgroundColor: COLORS.primary,
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
-    maxHeight: '70%',
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
   },
   header: {

@@ -42,6 +42,18 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
   const dayNumber = route?.params?.dayNumber;
   const onAccept = route?.params?.onAccept;
 
+  // Debug: Log del estado actual
+  console.log('🔍 NutritionFeedback State:', {
+    hasFeedback: !!feedback,
+    feedbackKeys: feedback ? Object.keys(feedback).length : 0,
+    loading,
+    error,
+    hasCachedFeedback: !!cachedFeedback,
+    userId,
+    timelineId,
+    dayNumber
+  });
+
   useEffect(() => {
     loadCachedFeedback();
   }, []);
@@ -56,9 +68,13 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
         const cacheDate = new Date(parsedCache.timestamp).toDateString();
         const today = new Date().toDateString();
 
-        if (cacheDate === today) {
+        if (cacheDate === today && parsedCache.data) {
+          console.log('✅ Feedback en caché encontrado');
           setCachedFeedback(parsedCache.data);
-          setFeedback(parsedCache.data);
+          // NO establecer feedback automáticamente, solo guardarlo para mostrar botón
+          // setFeedback(parsedCache.data);
+        } else {
+          console.log('ℹ️ No hay feedback en caché válido');
         }
       }
     } catch (error) {
@@ -233,18 +249,6 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           <Text style={styles.featureText}>Sugerencias de próxima comida</Text>
         </View>
       </View>
-
-      {cachedFeedback && (
-        <TouchableOpacity
-          style={styles.viewCachedButton}
-          onPress={() => setFeedback(cachedFeedback)}
-        >
-          <Ionicons name="time-outline" size={20} color={COLORS.secondary} />
-          <Text style={styles.viewCachedText}>
-            Ver último análisis
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 
@@ -312,8 +316,21 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           </View>
         ) : error && !feedback ? (
           renderError()
-        ) : feedback ? (
+        ) : feedback && Object.keys(feedback).length > 0 ? (
           <Animated.View style={{ opacity: fadeAnim }}>
+            {/* Header descriptivo del análisis */}
+            <View style={styles.analysisHeader}>
+              <View style={styles.analysisHeaderIcon}>
+                <Ionicons name="bulb" size={32} color={COLORS.secondary} />
+              </View>
+              <View style={styles.analysisHeaderContent}>
+                <Text style={styles.analysisHeaderTitle}>Análisis Generado</Text>
+                <Text style={styles.analysisHeaderSubtitle}>
+                  Evaluación personalizada de calorías e hidratación
+                </Text>
+              </View>
+            </View>
+
             <FeedbackCard feedback={feedback} userName={userName} />
 
             {/* Botón para aceptar recomendaciones */}
@@ -558,5 +575,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  analysisHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  analysisHeaderIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  analysisHeaderContent: {
+    flex: 1,
+  },
+  analysisHeaderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  analysisHeaderSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
 });
