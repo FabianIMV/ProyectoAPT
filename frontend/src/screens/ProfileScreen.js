@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { PROFILE_API } from '../config/api';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width } = Dimensions.get('window');
 
 export default function ProfileScreen({ navigation, route }) {
   const [profileData, setProfileData] = useState({
@@ -109,100 +112,108 @@ export default function ProfileScreen({ navigation, route }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[COLORS.secondary]}
-          tintColor={COLORS.secondary}
-        />
-      }
-    >
-      <View style={styles.content}>
-        {refreshing && (
-          <View style={styles.loadingHeader}>
-            <ActivityIndicator size="small" color={COLORS.secondary} />
-            <Text style={styles.loadingText}>Actualizando perfil...</Text>
-          </View>
-        )}
-        <Text style={styles.title}>Mi Perfil</Text>
-        <Text style={styles.subtitle}>Información del peleador</Text>
-
-        <Text style={styles.cardTitle}>Perfil General</Text>
-        <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            {profileData.profile_picture_url ? (
-              <Image
-                source={{ uri: profileData.profile_picture_url }}
-                style={styles.avatarImage}
-              />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {profileData.name.charAt(0).toUpperCase()}
-                </Text>
+    <View style={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.secondary]}
+            tintColor={COLORS.secondary}
+          />
+        }
+      >
+        {/* Header con gradiente */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerGradient}>
+            {refreshing && (
+              <View style={styles.loadingHeader}>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.loadingHeaderText}>Actualizando...</Text>
               </View>
             )}
-            <Text style={styles.userName}>{profileData.name}</Text>
+            
+            {/* Avatar y nombre */}
+            <View style={styles.avatarSection}>
+              {profileData.profile_picture_url ? (
+                <Image
+                  source={{ uri: profileData.profile_picture_url }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {profileData.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <Text style={styles.userName}>{profileData.name}</Text>
+              <Text style={styles.userSubtitle}>Atleta Profesional</Text>
+            </View>
+
+            {/* Stats cards */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statCard}>
+                <Ionicons name="fitness" size={24} color={COLORS.secondary} />
+                <Text style={styles.statValue}>{profileData.weight || '--'}</Text>
+                <Text style={styles.statLabel}>Peso (kg)</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="resize" size={24} color={COLORS.secondary} />
+                <Text style={styles.statValue}>{profileData.height || '--'}</Text>
+                <Text style={styles.statLabel}>Altura (cm)</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="calendar" size={24} color={COLORS.secondary} />
+                <Text style={styles.statValue}>{profileData.age || '--'}</Text>
+                <Text style={styles.statLabel}>Edad</Text>
+              </View>
+            </View>
           </View>
-
-          <Text style={styles.cardTitle}>Información Personal</Text>
-          <View style={styles.infoSection}>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nombre:</Text>
-              <Text style={styles.infoValue}>{profileData.name || 'No especificado'}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Edad:</Text>
-              <Text style={styles.infoValue}>{profileData.age || 'No especificado'}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Altura:</Text>
-              <Text style={styles.infoValue}>{profileData.height ? `${profileData.height} cm` : 'No especificado'}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Peso:</Text>
-              <Text style={styles.infoValue}>{profileData.weight ? `${profileData.weight} kg` : 'No especificado'}</Text>
-            </View>
-          </View>
-
         </View>
 
-        {/* Sección de Configuraciones */}
-        <Text style={styles.cardTitle}>Configuración</Text>
-        <View style={styles.configSection}>
-
-          <TouchableOpacity style={styles.configButton} onPress={handleEditProfile}>
-            <View style={styles.configButtonContent}>
-              <Text style={styles.configButtonText}>Modificar mi perfil</Text>
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Acción rápida - Editar perfil */}
+          <TouchableOpacity style={styles.editProfileCard} onPress={handleEditProfile}>
+            <View style={styles.editProfileIcon}>
+              <Ionicons name="person-circle" size={32} color={COLORS.secondary} />
             </View>
-            <Text style={styles.arrowText}>›</Text>
+            <View style={styles.editProfileContent}>
+              <Text style={styles.editProfileTitle}>Editar Perfil</Text>
+              <Text style={styles.editProfileSubtitle}>Actualiza tu información personal</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
 
+          {/* Opciones */}
+          <Text style={styles.sectionTitle}>Opciones</Text>
+          
           <TouchableOpacity
-            style={styles.configButton}
+            style={styles.optionCard}
             onPress={() => navigation.navigate('WeightCutHistory')}
           >
-            <View style={styles.configButtonContent}>
-              <Text style={styles.configButtonText}>Historial de Cortes de Peso</Text>
+            <View style={[styles.optionIcon, { backgroundColor: '#9C27B0' }]}>
+              <Ionicons name="calendar-outline" size={24} color="#fff" />
             </View>
-            <Text style={styles.arrowText}>›</Text>
+            <View style={styles.optionContent}>
+              <Text style={styles.optionTitle}>Historial de Cortes</Text>
+              <Text style={styles.optionSubtitle}>Ver tus cortes anteriores</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <View style={styles.configButtonContent}>
-              <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+          {/* Logout */}
+          <TouchableOpacity style={styles.logoutCard} onPress={handleLogout}>
+            <View style={styles.logoutIcon}>
+              <Ionicons name="log-out-outline" size={24} color="#fff" />
             </View>
+            <Text style={styles.logoutText}>Cerrar Sesión</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -211,174 +222,195 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.primary,
   },
-  content: {
-    padding: 20,
+  headerContainer: {
+    marginBottom: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  profileCard: {
+  headerGradient: {
     backgroundColor: COLORS.accent,
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 20,
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.secondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  avatarImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: COLORS.secondary,
-  },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  infoSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primary,
-    paddingBottom: 5,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primary,
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 16,
-    color: COLORS.text,
-    fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'right',
-  },
-  configSection: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 20,
-  },
-  configTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primary,
-    paddingBottom: 5,
-  },
-  configButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  configButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  configButtonText: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 12,
-  },
-  logoutButton: {
-    backgroundColor: COLORS.error || '#FF6B6B',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  logoutButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  iconText: {
-    fontSize: 18,
-    marginRight: 12,
-  },
-  iconTextWhite: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  arrowText: {
-    fontSize: 18,
-    color: COLORS.textSecondary,
-    fontWeight: 'bold',
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   loadingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    marginBottom: 15,
+    marginBottom: 10,
   },
-  loadingText: {
+  loadingHeaderText: {
     color: COLORS.secondary,
-    fontSize: 14,
+    fontSize: 13,
     marginLeft: 8,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 15,
+    borderWidth: 3,
+    borderColor: COLORS.secondary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  avatarText: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  userName: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  userSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
     fontWeight: '500',
   },
-  cardTitle: {
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 15,
+    padding: 15,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+  },
+  editProfileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 30,
+    shadowColor: COLORS.secondary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  editProfileIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  editProfileContent: {
+    flex: 1,
+  },
+  editProfileTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  editProfileSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 15,
+  },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    borderRadius: 15,
+    padding: 16,
+    marginBottom: 12,
+  },
+  optionIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 3,
+  },
+  optionSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  logoutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6B6B',
+    borderRadius: 15,
+    padding: 18,
+    marginTop: 20,
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  logoutIcon: {
+    marginRight: 10,
+  },
+  logoutText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginBottom: 10,
-    marginTop: 15,
-    paddingHorizontal: 5,
+    color: '#fff',
   },
   loadingContainer: {
     flex: 1,
