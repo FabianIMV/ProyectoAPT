@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -606,6 +606,7 @@ export default function DashboardScreen({ navigation, route }) {
   };
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
@@ -1108,10 +1109,15 @@ export default function DashboardScreen({ navigation, route }) {
         currentDay={currentDayNumber}
       />
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
@@ -1121,8 +1127,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
+    paddingTop: Platform.OS === 'ios' ? 32 : 20,
+    paddingBottom: 12,
   },
   headerTitle: {
     fontSize: 28,
@@ -1455,7 +1461,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bottomSpacing: {
-    height: 30,
+    height: Platform.OS === 'ios' ? 40 : 30,
   },
   loadingHeader: {
     flexDirection: 'row',

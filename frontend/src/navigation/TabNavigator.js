@@ -49,7 +49,7 @@ export default function TabNavigator() {
       <Tab.Screen
         name="Dashboard"
         component={DashboardStackNavigator}
-        options={{ title: 'Dashboard' }}
+        options={{ title: 'Avances', tabBarLabel: 'Avances', headerShown: false }}
       />
       <Tab.Screen
         name="Profile"
