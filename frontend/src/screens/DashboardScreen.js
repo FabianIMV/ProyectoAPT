@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +19,7 @@ import { addWaterIntake, getDayProgress, setDailyWeight } from '../services/prog
 import WaterIntakeModal from '../components/WaterIntakeModal';
 import WeightInputModal from '../components/WeightInputModal';
 import { calculateCurrentDayIndex, calculateCurrentDayNumber } from '../utils/dateUtils';
+import { generateTimelineAlerts, filterTopAlerts } from '../services/alertsService';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +47,13 @@ export default function DashboardScreen({ navigation, route }) {
   const [isPlanExpanded, setIsPlanExpanded] = useState(false);
   const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState([]); // Array de todas las recomendaciones
+  const [timelineAlerts, setTimelineAlerts] = useState([]); // Alertas automáticas del timeline
+  const [dismissedAlerts, setDismissedAlerts] = useState([]); // IDs de alertas cerradas
+
+  // Cargar alertas cerradas desde AsyncStorage al montar
+  useEffect(() => {
+    loadDismissedAlerts();
+  }, []);
 
   useEffect(() => {
     if (userId && user) {
@@ -98,6 +107,34 @@ export default function DashboardScreen({ navigation, route }) {
       loadWaterIntake();
     }
   }, [timelineId, currentDayNumber]);
+
+  // Cargar alertas cerradas desde AsyncStorage
+  const loadDismissedAlerts = async () => {
+    try {
+      const dismissed = await AsyncStorage.getItem('@dismissed_alerts');
+      if (dismissed) {
+        setDismissedAlerts(JSON.parse(dismissed));
+      }
+    } catch (error) {
+      console.log('Error cargando alertas cerradas:', error);
+    }
+  };
+
+  // Guardar alertas cerradas en AsyncStorage
+  const saveDismissedAlerts = async (alertIds) => {
+    try {
+      await AsyncStorage.setItem('@dismissed_alerts', JSON.stringify(alertIds));
+    } catch (error) {
+      console.log('Error guardando alertas cerradas:', error);
+    }
+  };
+
+  // Cerrar una alerta y guardarla
+  const handleDismissAlert = (alertId) => {
+    const newDismissed = [...dismissedAlerts, alertId];
+    setDismissedAlerts(newDismissed);
+    saveDismissedAlerts(newDismissed);
+  };
 
   const loadUserProfile = async () => {
     if (!user || !user.email) return null;
@@ -371,6 +408,31 @@ export default function DashboardScreen({ navigation, route }) {
           hasTimeline: !!timeline,
           currentDayInfo
         });
+
+        // Generar alertas automáticas del timeline
+        if (timeline && currentDayInfo && calculatedDayNumber) {
+          // Obtener agua actualizada del progreso cargado
+          const currentWaterIntake = loadedProgressData?.actualWaterLiters || loadedProgressData?.actual_water_liters || 0;
+          
+          const alerts = generateTimelineAlerts({
+            currentDayNumber: calculatedDayNumber,
+            totalDays: timeline.total_days,
+            currentWeight: currentWeight,
+            targetWeightToday: parseFloat(currentDayInfo.targets.weightKg),
+            targetWeightFinal: parseFloat(activePlan.analysis_request?.targetWeightKg),
+            startWeight: parseFloat(activePlan.analysis_request?.currentWeightKg),
+            actualCalories: loadedProgressData?.actualCalories || loadedProgressData?.actual_calories || 0,
+            targetCalories: currentDayInfo.targets.caloriesIntake,
+            actualWater: currentWaterIntake,
+            targetWater: currentDayInfo.targets.waterIntakeLiters,
+            yesterdayWeight: loadedYesterdayProgress?.actualWeightKg || loadedYesterdayProgress?.actual_weight_kg,
+            phase: currentDayInfo.phase
+          });
+
+          // Filtrar y mostrar solo las 3 alertas más importantes
+          const topAlerts = filterTopAlerts(alerts, 3);
+          setTimelineAlerts(topAlerts);
+        }
 
         console.log('✅ Dashboard data loaded:', {
           hasActivePlan: true,
@@ -838,6 +900,48 @@ export default function DashboardScreen({ navigation, route }) {
               )}
             </TouchableOpacity>
           </View>
+        </View>
+      )}
+
+      {/* === ALERTAS AUTOMÁTICAS DEL TIMELINE === */}
+      {timelineAlerts.filter(alert => !dismissedAlerts.includes(alert.id)).length > 0 && (
+        <View style={styles.alertsSection}>
+          <Text style={styles.alertsSectionTitle}>🔔 Alertas de Progreso</Text>
+          {timelineAlerts
+            .filter(alert => !dismissedAlerts.includes(alert.id))
+            .map((alert) => (
+              <View 
+                key={alert.id}
+                style={[styles.alertCard, { borderLeftColor: alert.color }]}
+              >
+                <TouchableOpacity
+                  style={styles.alertCloseButton}
+                  onPress={() => handleDismissAlert(alert.id)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+                
+                <View style={styles.alertHeader}>
+                  <Text style={styles.alertIcon}>{alert.icon}</Text>
+                  <View style={styles.alertTitleContainer}>
+                    <Text style={styles.alertTitle}>{alert.title}</Text>
+                    <View style={[styles.alertTypeBadge, { backgroundColor: alert.color }]}>
+                      <Text style={styles.alertTypeBadgeText}>{alert.type.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.alertMessage}>{alert.message}</Text>
+                {alert.action && (
+                  <View style={styles.alertActionContainer}>
+                    <Ionicons name="arrow-forward-circle" size={16} color={alert.color} />
+                    <Text style={[styles.alertAction, { color: alert.color }]}>
+                      {alert.action}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ))}
         </View>
       )}
 
@@ -2092,6 +2196,83 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   // Botón flotante de IA
+  // Alertas del Timeline
+  alertsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  alertsSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 15,
+  },
+  alertCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 15,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    position: 'relative',
+  },
+  alertCloseButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    padding: 4,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  alertIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  alertTitleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    flex: 1,
+  },
+  alertTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  alertTypeBadgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  alertActionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  alertAction: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   aiFloatingButton: {
     position: 'absolute',
     bottom: 30,
