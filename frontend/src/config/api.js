@@ -41,6 +41,7 @@ export const PROGRESS_API = {
     `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/progress/complete?userId=${userId}&timelineId=${timelineId}&dayNumber=${dayNumber}`,
   skip: (userId, timelineId, dayNumber) =>
     `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/progress/skip?userId=${userId}&timelineId=${timelineId}&dayNumber=${dayNumber}`,
+  readjust: `${API_ENDPOINTS.WEIGHT_CUT_BASE}/weight-cut/progress/readjust`,
 };
 
 // Nutrition AI Recommendations API

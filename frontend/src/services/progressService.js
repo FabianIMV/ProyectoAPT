@@ -288,3 +288,68 @@ export const saveAIRecommendations = async (userId, timelineId, dayNumber, recom
     notes: JSON.stringify(aiEntry),
   });
 };
+
+/**
+ * Reajusta el timeline desde un día específico hacia adelante
+ * basándose en el progreso real del usuario hasta ese momento
+ *
+ * @param {string} userId - ID del usuario
+ * @param {number} lastCompletedDay - Último día COMPLETADO (ej: 3 significa "completé el día 3")
+ * @param {number} currentActualWeight - Peso actual en kg (opcional, si no se envía busca el último registrado)
+ * @param {string} timelineId - ID del timeline (opcional, si no se envía usa el activo)
+ * @param {string} reason - Razón del reajuste (opcional, para logging)
+ *
+ * @returns {Promise<Object>} Resultado con el timeline reajustado
+ */
+export const readjustTimeline = async (userId, lastCompletedDay, currentActualWeight = null, timelineId = null, reason = null) => {
+  try {
+    const requestBody = {
+      userId,
+      lastCompletedDay,
+    };
+
+    // Agregar campos opcionales si existen
+    if (currentActualWeight !== null && currentActualWeight !== undefined) {
+      requestBody.currentActualWeight = currentActualWeight;
+    }
+    if (timelineId) {
+      requestBody.timelineId = timelineId;
+    }
+    if (reason) {
+      requestBody.reason = reason;
+    }
+
+    const response = await fetch(`${PROGRESS_BASE}/readjust`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Manejar diferentes códigos de error
+      if (response.status === 404) {
+        throw new Error(data.message || 'Timeline no encontrado');
+      }
+      if (response.status === 400) {
+        throw new Error(data.message || 'Parámetros inválidos');
+      }
+      throw new Error(data.message || 'Error reajustando timeline');
+    }
+
+    return {
+      success: true,
+      data: data.data,
+      message: data.message
+    };
+  } catch (error) {
+    console.error('Error en readjustTimeline:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};

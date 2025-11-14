@@ -15,7 +15,7 @@ import {
   getCurrentAlert
 } from '../services/dashboardService';
 import { addWaterIntake as addWaterIntakeOld, getDailyWaterIntake } from '../services/waterService';
-import { addWaterIntake, getDayProgress, setDailyWeight } from '../services/progressService';
+import { addWaterIntake, getDayProgress, setDailyWeight, readjustTimeline } from '../services/progressService';
 import WaterIntakeModal from '../components/WaterIntakeModal';
 import WeightInputModal from '../components/WeightInputModal';
 import { calculateCurrentDayIndex, calculateCurrentDayNumber } from '../utils/dateUtils';
@@ -49,6 +49,7 @@ export default function DashboardScreen({ navigation, route }) {
   const [aiRecommendations, setAiRecommendations] = useState([]); // Array de todas las recomendaciones
   const [timelineAlerts, setTimelineAlerts] = useState([]); // Alertas automáticas del timeline
   const [dismissedAlerts, setDismissedAlerts] = useState([]); // IDs de alertas cerradas
+  const [isReadjustingTimeline, setIsReadjustingTimeline] = useState(false);
 
   // Cargar alertas cerradas desde AsyncStorage al montar
   useEffect(() => {
@@ -667,6 +668,128 @@ export default function DashboardScreen({ navigation, route }) {
     }
   };
 
+  const handleReadjustTimeline = async () => {
+    if (!userId || !timelineId || !currentDayNumber || !activeTimeline) {
+      Alert.alert('Error', 'No se encontró información del timeline activo');
+      return;
+    }
+
+    // Validación: No se puede reajustar si estamos en el último día
+    if (currentDayNumber >= activeTimeline.total_days) {
+      Alert.alert(
+        'No se puede reajustar',
+        'No puedes reajustar el timeline desde el último día. El plan está por finalizar.'
+      );
+      return;
+    }
+
+    // Calcular qué días se verán afectados
+    const lastCompletedDay = currentDayNumber - 1; // El día anterior al actual
+    const firstDayAffected = currentDayNumber;
+    const lastDayAffected = activeTimeline.total_days;
+    const affectedDaysCount = lastDayAffected - firstDayAffected + 1;
+
+    // Obtener peso actual para mostrarlo en el diálogo
+    let currentWeight;
+    if (currentDayNumber === 1) {
+      currentWeight = dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg;
+    } else {
+      currentWeight = yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg;
+    }
+
+    const weightText = currentWeight
+      ? `\n\n📊 Peso actual: ${currentWeight.toFixed(1)}kg`
+      : '\n\n⚠️ No tienes peso registrado. Se usará el último peso disponible.';
+
+    // Mostrar confirmación detallada
+    Alert.alert(
+      '🔄 Reajustar Timeline',
+      `Esta acción regenerará tu plan desde el día ${firstDayAffected} hasta el día ${lastDayAffected} (${affectedDaysCount} días) basándose en tu progreso real hasta ahora.${weightText}\n\n⏱️ Tiempo estimado: ${Math.max(60, affectedDaysCount * 10)}s\n\n¿Deseas continuar?`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Reajustar Plan',
+          style: 'default',
+          onPress: () => executeReadjustTimeline(lastCompletedDay, currentWeight)
+        }
+      ]
+    );
+  };
+
+  const executeReadjustTimeline = async (lastCompletedDay, currentWeight) => {
+    setIsReadjustingTimeline(true);
+
+    try {
+      console.log('🔄 Iniciando reajuste de timeline...', {
+        userId,
+        timelineId,
+        lastCompletedDay,
+        currentWeight
+      });
+
+      const result = await readjustTimeline(
+        userId,
+        lastCompletedDay,
+        currentWeight,
+        timelineId,
+        'Usuario solicitó reajuste desde DashboardScreen'
+      );
+
+      if (result.success) {
+        const data = result.data;
+
+        // Construir mensaje de éxito con detalles
+        let successMessage = `✅ Timeline reajustado exitosamente\n\n`;
+        successMessage += `📅 Días reajustados: ${data.firstDayReadjusted} al ${data.lastDayReadjusted} (${data.affectedDays} días)\n`;
+        successMessage += `⚖️ Peso actual: ${data.currentWeight.toFixed(1)}kg\n`;
+        successMessage += `🎯 Peso objetivo: ${data.targetWeight.toFixed(1)}kg\n`;
+        successMessage += `📉 Por perder: ${data.remainingWeightToCut.toFixed(1)}kg`;
+
+        // Mostrar razonamiento de IA si está disponible
+        if (data.adjustmentReasoning) {
+          successMessage += `\n\n🤖 Análisis IA:\n${data.adjustmentReasoning.substring(0, 200)}${data.adjustmentReasoning.length > 200 ? '...' : ''}`;
+        }
+
+        Alert.alert(
+          '✅ Reajuste Exitoso',
+          successMessage,
+          [
+            {
+              text: 'Ver Timeline Actualizado',
+              onPress: async () => {
+                // Recargar datos del dashboard para reflejar cambios
+                await loadDashboardData(true);
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error(result.error || 'Error desconocido al reajustar timeline');
+      }
+    } catch (error) {
+      console.error('❌ Error reajustando timeline:', error);
+
+      let errorMessage = 'No se pudo reajustar el timeline.';
+
+      if (error.message.includes('Timeline no encontrado')) {
+        errorMessage = 'No se encontró el timeline activo. Por favor recarga la app.';
+      } else if (error.message.includes('Parámetros inválidos')) {
+        errorMessage = 'Los parámetros del reajuste son inválidos. Verifica tu progreso.';
+      } else if (error.message.includes('cannot be the last day')) {
+        errorMessage = 'No puedes reajustar desde el último día del plan.';
+      } else {
+        errorMessage += `\n\n${error.message}`;
+      }
+
+      Alert.alert('Error al Reajustar', errorMessage);
+    } finally {
+      setIsReadjustingTimeline(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
@@ -786,6 +909,35 @@ export default function DashboardScreen({ navigation, route }) {
             onPress={() => navigation.navigate('WeightCutCalculator')}
           >
             <Text style={styles.timelineSecondaryButtonText}>Crear Nuevo Plan</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Timeline futuro - El plan aún no ha comenzado */}
+      {activeTimeline && !currentDayData && !needsTimeline && !loadingTimeline && (
+        <View style={styles.timelineNeededCard}>
+          <Text style={styles.timelineNeededIcon}>📅</Text>
+          <Text style={styles.timelineNeededTitle}>Plan Programado</Text>
+          <Text style={styles.timelineNeededText}>
+            Tu plan de corte está programado para comenzar el{' '}
+            {(() => {
+              const startDate = new Date(activeTimeline.start_date);
+              return startDate.toLocaleDateString('es-ES', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              });
+            })()}
+          </Text>
+          <Text style={styles.timelineNeededSubtext}>
+            El plan tiene {activeTimeline.total_days} días de duración. Las métricas y seguimiento estarán disponibles cuando comience tu plan.
+          </Text>
+          <TouchableOpacity
+            style={styles.timelineSecondaryButton}
+            onPress={() => navigation.navigate('WeightCutCalculator')}
+          >
+            <Text style={styles.timelineSecondaryButtonText}>Crear Nuevo Plan para Hoy</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1094,7 +1246,33 @@ export default function DashboardScreen({ navigation, route }) {
         </>
       )}
 
-      {dashboardData && !currentDayData && (
+      {/* Timeline expirado - El plan ya finalizó */}
+      {activeTimeline && dashboardData && dashboardData.timeRemaining?.isExpired && (
+        <View style={styles.timelineNeededCard}>
+          <Text style={styles.timelineNeededIcon}>🏁</Text>
+          <Text style={styles.timelineNeededTitle}>Plan Finalizado</Text>
+          <Text style={styles.timelineNeededText}>
+            Tu plan de corte ha finalizado. ¡Felicidades por completarlo!
+          </Text>
+          <Text style={styles.timelineNeededSubtext}>
+            Puedes ver tus estadísticas finales o crear un nuevo plan si lo necesitas.
+          </Text>
+          <TouchableOpacity
+            style={[styles.timelineNeededButton, { backgroundColor: '#9C27B0' }]}
+            onPress={() => navigation.navigate('Stats')}
+          >
+            <Text style={styles.timelineNeededButtonText}>Ver Estadísticas</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.timelineSecondaryButton}
+            onPress={() => navigation.navigate('WeightCutCalculator')}
+          >
+            <Text style={styles.timelineSecondaryButtonText}>Crear Nuevo Plan</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {dashboardData && !currentDayData && !dashboardData.timeRemaining?.isExpired && !activeTimeline && (
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
             <Text style={styles.metricTitle}>Sodio Hoy</Text>
@@ -1171,6 +1349,35 @@ export default function DashboardScreen({ navigation, route }) {
             <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
           </View>
         </TouchableOpacity>
+
+        {/* Botón de Reajustar Timeline - Solo visible si hay timeline activo y no es el último día */}
+        {activeTimeline && currentDayNumber && currentDayNumber < activeTimeline.total_days && (
+          <TouchableOpacity
+            style={[styles.navCard, isReadjustingTimeline && styles.navCardDisabled]}
+            onPress={handleReadjustTimeline}
+            activeOpacity={0.7}
+            disabled={isReadjustingTimeline}
+          >
+            <View style={styles.navCardContent}>
+              <View style={[styles.navIcon, { backgroundColor: '#FF9800' }]}>
+                {isReadjustingTimeline ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Ionicons name="refresh-circle" size={28} color="white" />
+                )}
+              </View>
+              <View style={styles.navTextContainer}>
+                <Text style={styles.navTitle}>Reajustar Timeline</Text>
+                <Text style={styles.navDescription}>
+                  {isReadjustingTimeline
+                    ? 'Reajustando plan con IA...'
+                    : 'Adapta tu plan al progreso real'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
         <View style={styles.bottomSpacing} />
@@ -1552,6 +1759,9 @@ const styles = StyleSheet.create({
   navDescription: {
     fontSize: 13,
     color: COLORS.textSecondary,
+  },
+  navCardDisabled: {
+    opacity: 0.6,
   },
   actionsSection: {
     paddingHorizontal: 20,
