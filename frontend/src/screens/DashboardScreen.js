@@ -515,7 +515,7 @@ export default function DashboardScreen({ navigation, route }) {
       if (response.status === 502) {
         const textResponse = await response.text();
         console.error('Timeline Lambda timeout/error (502):', textResponse);
-        throw new Error('El servidor tardó demasiado en generar el timeline.\n\nPuedes intentar:\n1. Usar gemini-2.5-flash en lugar de pro\n2. Crear un plan con menos días\n3. Contactar soporte técnico');
+        throw new Error('El servidor tardó demasiado en generar el timeline.\n\nPuedes intentar:\n1. Usar gemini-2.5-flash-latest en lugar de pro\n2. Crear un plan con menos días\n3. Contactar soporte técnico');
       }
 
       if (contentType && contentType.includes('application/json')) {

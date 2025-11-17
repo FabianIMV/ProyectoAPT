@@ -387,7 +387,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   ];
 
   const modelOptions = [
-    { label: 'Gemini 2.5 Flash (Rápido)', value: 'gemini-2.5-flash' },
+    { label: 'Gemini 2.5 Flash (Rápido)', value: 'gemini-2.5-flash-latest' },
     { label: 'Gemini 2.5 Pro (Detallado)', value: 'gemini-2.5-pro' }
   ];
 
@@ -988,7 +988,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                     onValueChange={(value) => handleInputChange('model', value)}
                     dropdownIconColor={COLORS.secondary}
                   >
-                    <Picker.Item label="Gemini 2.5 Flash (Rápido)" value="gemini-2.5-flash" />
+                    <Picker.Item label="Gemini 2.5 Flash (Rápido)" value="gemini-2.5-flash-latest" />
                     <Picker.Item label="Gemini 2.5 Pro (Detallado)" value="gemini-2.5-pro" />
                   </Picker>
                 </View>

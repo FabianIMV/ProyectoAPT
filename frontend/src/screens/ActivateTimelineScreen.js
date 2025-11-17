@@ -189,7 +189,7 @@ export default function ActivateTimelineScreen({ route, navigation }) {
       if (response.status === 502) {
         const textResponse = await response.text();
         console.error('Timeline Lambda timeout/error (502):', textResponse);
-        throw new Error('El servidor tardó demasiado en generar el timeline.\n\nIntenta con menos días o usando gemini-2.5-flash.');
+        throw new Error('El servidor tardó demasiado en generar el timeline.\n\nIntenta con menos días o usando gemini-2.5-flash-latest.');
       }
 
       // Verificar Content-Type
