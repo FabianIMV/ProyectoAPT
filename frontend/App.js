@@ -35,6 +35,7 @@ export default function App() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+          headerBackTitle: 'Atrás',
         }}
       >
         <Stack.Screen
@@ -100,7 +101,7 @@ export default function App() {
         <Stack.Screen
           name="WaterHistory"
           component={WaterHistoryScreen}
-          options={{ headerShown: false }}
+          options={{ title: 'Historial de Agua' }}
         />
       </Stack.Navigator>
       </NavigationContainer>

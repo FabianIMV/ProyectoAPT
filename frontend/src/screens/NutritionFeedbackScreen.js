@@ -269,21 +269,14 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Feedback Nutricional IA</Text>
+  // Configurar el botón de refrescar en el header del Stack Navigator
+  React.useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
         <TouchableOpacity
           onPress={fetchFeedback}
           disabled={loading}
-          style={styles.refreshHeaderButton}
+          style={{ marginRight: 15 }}
         >
           {loading ? (
             <ActivityIndicator size="small" color={COLORS.secondary} />
@@ -291,8 +284,13 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
             <Ionicons name="refresh" size={24} color={COLORS.secondary} />
           )}
         </TouchableOpacity>
-      </View>
+      ),
+      headerBackTitle: 'Atrás',
+    });
+  }, [navigation, loading]);
 
+  return (
+    <View style={styles.container}>
       {/* Content */}
       <ScrollView
         style={styles.scrollView}
