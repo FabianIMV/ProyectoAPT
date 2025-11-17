@@ -1058,7 +1058,13 @@ export default function DashboardScreen({ navigation, route }) {
       {/* === ALERTAS AUTOMÁTICAS DEL TIMELINE === */}
       {timelineAlerts.filter(alert => !dismissedAlerts.includes(alert.id)).length > 0 && (
         <View style={styles.alertsSection}>
-          <Text style={styles.alertsSectionTitle}>🔔 Alertas de Progreso</Text>
+          <View style={styles.alertsSectionHeader}>
+            <Text style={styles.alertsSectionTitle}>🔔 Alertas de Progreso</Text>
+            <Text style={styles.alertsSectionSubtitle}>
+              Notificaciones importantes sobre tu plan
+            </Text>
+          </View>
+          
           {timelineAlerts
             .filter(alert => !dismissedAlerts.includes(alert.id))
             .map((alert) => (
@@ -1071,22 +1077,48 @@ export default function DashboardScreen({ navigation, route }) {
                   onPress={() => handleDismissAlert(alert.id)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close-circle" size={24} color={COLORS.textSecondary} />
+                  <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
                 </TouchableOpacity>
                 
                 <View style={styles.alertHeader}>
                   <Text style={styles.alertIcon}>{alert.icon}</Text>
                   <View style={styles.alertTitleContainer}>
                     <Text style={styles.alertTitle}>{alert.title}</Text>
-                    <View style={[styles.alertTypeBadge, { backgroundColor: alert.color }]}>
-                      <Text style={styles.alertTypeBadgeText}>{alert.type.toUpperCase()}</Text>
+                    <View style={[styles.alertTypeBadge, { backgroundColor: alert.color + '20', borderColor: alert.color }]}>
+                      <Text style={[styles.alertTypeBadgeText, { color: alert.color }]}>
+                        {alert.type.toUpperCase()}
+                      </Text>
                     </View>
                   </View>
                 </View>
-                <Text style={styles.alertMessage}>{alert.message}</Text>
+                
+                {/* Mensaje formateado con mejor estructura */}
+                <View style={styles.alertMessageContainer}>
+                  <Text style={styles.alertMessage}>
+                    {alert.message.split('\n').map((line, idx) => {
+                      // Detectar si la línea tiene un título (termina con :)
+                      const isTitle = line.trim().endsWith(':');
+                      // Detectar si es un punto de lista (empieza con - o •)
+                      const isBullet = line.trim().startsWith('-') || line.trim().startsWith('•');
+                      
+                      return (
+                        <Text key={idx}>
+                          {isTitle ? (
+                            <Text style={styles.alertMessageTitle}>{line}{'\n'}</Text>
+                          ) : isBullet ? (
+                            <Text style={styles.alertMessageBullet}>  {line}{'\n'}</Text>
+                          ) : (
+                            <Text>{line}{idx < alert.message.split('\n').length - 1 ? '\n' : ''}</Text>
+                          )}
+                        </Text>
+                      );
+                    })}
+                  </Text>
+                </View>
+                
                 {alert.action && (
                   <View style={styles.alertActionContainer}>
-                    <Ionicons name="arrow-forward-circle" size={16} color={alert.color} />
+                    <Ionicons name="arrow-forward-circle" size={18} color={alert.color} />
                     <Text style={[styles.alertAction, { color: alert.color }]}>
                       {alert.action}
                     </Text>
@@ -1315,42 +1347,156 @@ export default function DashboardScreen({ navigation, route }) {
         </View>
       )}
 
+      {/* === ADVERTENCIA DEL DÍA === */}
       {dashboardData && dashboardData.currentAlert && (
-        <View style={[
-          styles.alertCard,
-          dashboardData.currentAlert.level === 'CRITICAL' && { backgroundColor: '#F44336' },
-          dashboardData.currentAlert.level === 'WARNING' && { backgroundColor: '#FF9800' },
-          dashboardData.currentAlert.level === 'INFO' && { backgroundColor: '#2196F3' }
-        ]}>
-          <View style={styles.alertContent}>
-            <Text style={styles.alertIcon}>{dashboardData.currentAlert.icon}</Text>
-            <Text style={styles.alertTitle}>{dashboardData.currentAlert.title}</Text>
+        <View style={styles.dailyAlertSection}>
+          <View style={styles.dailyAlertHeader}>
+            <Text style={styles.dailyAlertHeaderTitle}>⚠️ Advertencia del Día</Text>
+            <Text style={styles.dailyAlertHeaderSubtitle}>
+              Recomendación importante para hoy
+            </Text>
           </View>
-          <Text style={styles.alertText}>{dashboardData.currentAlert.message}</Text>
+
+          <View style={[
+            styles.dailyAlertCard,
+            { borderLeftColor: 
+              dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+              dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+            }
+          ]}>
+            {/* Badge de nivel */}
+            <View style={[
+              styles.dailyAlertBadge,
+              { 
+                backgroundColor: (
+                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                ) + '20',
+                borderColor: 
+                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+              }
+            ]}>
+              <Text style={[
+                styles.dailyAlertBadgeText,
+                { color: 
+                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                }
+              ]}>
+                {dashboardData.currentAlert.level}
+              </Text>
+            </View>
+
+            {/* Header con ícono y título */}
+            <View style={styles.dailyAlertContentHeader}>
+              <Text style={styles.dailyAlertIcon}>{dashboardData.currentAlert.icon}</Text>
+              <Text style={styles.dailyAlertTitle}>{dashboardData.currentAlert.title}</Text>
+            </View>
+
+            {/* Mensaje formateado */}
+            <View style={styles.dailyAlertMessageContainer}>
+              {(() => {
+                // Función para separar texto inteligentemente
+                const formatMessage = (message) => {
+                  // Primero, separar por saltos de línea existentes
+                  let lines = message.split('\n');
+                  
+                  // Si solo hay 1 línea larga, intentar separarla automáticamente
+                  if (lines.length === 1 && message.length > 80) {
+                    // Separar por punto seguido de mayúscula o números
+                    message = message.replace(/\.\s*([A-Z0-9])/g, '.\n$1');
+                    // Separar frases largas antes de palabras clave comunes
+                    message = message.replace(/\s+(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE|CORTE|HIDRATACIÓN|CALORÍAS)/gi, '\n\n$1');
+                    lines = message.split('\n');
+                  }
+                  
+                  return lines;
+                };
+                
+                const formattedLines = formatMessage(dashboardData.currentAlert.message);
+                
+                return formattedLines.map((line, idx) => {
+                  const trimmedLine = line.trim();
+                  
+                  // Detectar línea vacía para espaciado
+                  if (trimmedLine === '') {
+                    return <View key={idx} style={{ height: 10 }} />;
+                  }
+                  
+                  // Detectar títulos (terminan con :)
+                  const isTitle = trimmedLine.endsWith(':');
+                  
+                  // Detectar bullets (empiezan con - o •)
+                  const isBullet = trimmedLine.startsWith('-') || trimmedLine.startsWith('•');
+                  
+                  // Detectar palabras clave importantes al inicio
+                  const keywordPattern = /^(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE OFICIAL|CORTE DE AGUA|HIDRATACIÓN|CALORÍAS)/i;
+                  const hasKeyword = keywordPattern.test(trimmedLine);
+                  
+                  // Detectar patrones "Palabra: texto" (para negritas)
+                  const labelPattern = /^([A-Za-zÀ-ÿ\s]+):\s*(.+)$/;
+                  const hasLabelPattern = labelPattern.test(trimmedLine);
+                  
+                  if (isTitle) {
+                    return (
+                      <View key={idx} style={styles.dailyAlertTitleWrapper}>
+                        <Text style={styles.dailyAlertMessageTitle}>{trimmedLine}</Text>
+                      </View>
+                    );
+                  }
+                  
+                  if (hasKeyword) {
+                    const match = trimmedLine.match(keywordPattern);
+                    const keyword = match[1];
+                    const rest = trimmedLine.substring(keyword.length).trim();
+                    
+                    return (
+                      <View key={idx} style={styles.dailyAlertKeywordWrapper}>
+                        <Text style={styles.dailyAlertMessage}>
+                          <Text style={styles.dailyAlertKeyword}>{keyword}</Text>
+                          {rest && <Text>{' '}{rest}</Text>}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  
+                  if (isBullet) {
+                    const bulletText = trimmedLine.substring(1).trim();
+                    return (
+                      <View key={idx} style={styles.dailyAlertBulletWrapper}>
+                        <Text style={styles.dailyAlertBulletPoint}>•</Text>
+                        <Text style={styles.dailyAlertMessageBullet}>{bulletText}</Text>
+                      </View>
+                    );
+                  }
+                  
+                  if (hasLabelPattern) {
+                    const match = trimmedLine.match(labelPattern);
+                    return (
+                      <View key={idx} style={styles.dailyAlertLabelWrapper}>
+                        <Text style={styles.dailyAlertMessage}>
+                          <Text style={styles.dailyAlertLabel}>{match[1]}:</Text>
+                          {' '}{match[2]}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  
+                  return (
+                    <View key={idx} style={styles.dailyAlertTextWrapper}>
+                      <Text style={styles.dailyAlertMessage}>{trimmedLine}</Text>
+                    </View>
+                  );
+                });
+              })()}
+            </View>
+          </View>
         </View>
       )}
 
+      {/* Botón de Reajustar Timeline - Solo visible si hay timeline activo y no es el último día */}
       <View style={styles.navigationSection}>
-        <Text style={styles.sectionTitle}>Acceso Rápido</Text>
-
-        <TouchableOpacity
-          style={styles.navCard}
-          onPress={() => navigation.navigate('Stats')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.navCardContent}>
-            <View style={[styles.navIcon, { backgroundColor: '#9C27B0' }]}>
-              <Ionicons name="stats-chart" size={28} color="white" />
-            </View>
-            <View style={styles.navTextContainer}>
-              <Text style={styles.navTitle}>Estadísticas</Text>
-              <Text style={styles.navDescription}>Visualiza tu progreso</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
-          </View>
-        </TouchableOpacity>
-
-        {/* Botón de Reajustar Timeline - Solo visible si hay timeline activo y no es el último día */}
         {activeTimeline && currentDayNumber && currentDayNumber < activeTimeline.total_days && (
           <TouchableOpacity
             style={[styles.navCard, isReadjustingTimeline && styles.navCardDisabled]}
@@ -1697,6 +1843,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 5,
   },
+  // OLD ALERT STYLES (deprecated - keeping for backwards compatibility)
   alertCard: {
     backgroundColor: '#FF6B6B',
     marginHorizontal: 20,
@@ -1723,6 +1870,130 @@ const styles = StyleSheet.create({
   alertText: {
     color: 'white',
     fontSize: 14,
+  },
+  // NEW DAILY ALERT STYLES
+  dailyAlertSection: {
+    paddingHorizontal: 20,
+    marginBottom: 25,
+  },
+  dailyAlertHeader: {
+    marginBottom: 16,
+  },
+  dailyAlertHeaderTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  dailyAlertHeaderSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  dailyAlertCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 16,
+    padding: 20,
+    borderLeftWidth: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    position: 'relative',
+  },
+  dailyAlertBadge: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  dailyAlertBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  dailyAlertContentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingRight: 80,
+  },
+  dailyAlertIcon: {
+    fontSize: 32,
+    marginRight: 14,
+  },
+  dailyAlertTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    lineHeight: 24,
+    flex: 1,
+  },
+  dailyAlertMessageContainer: {
+    backgroundColor: COLORS.primary + '40',
+    borderRadius: 12,
+    padding: 16,
+    gap: 4,
+  },
+  dailyAlertMessage: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  dailyAlertTitleWrapper: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  dailyAlertMessageTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: COLORS.secondary,
+    lineHeight: 24,
+  },
+  dailyAlertBulletWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 4,
+    paddingLeft: 8,
+  },
+  dailyAlertBulletPoint: {
+    fontSize: 16,
+    color: COLORS.secondary,
+    marginRight: 8,
+    marginTop: 2,
+    fontWeight: 'bold',
+  },
+  dailyAlertMessageBullet: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  dailyAlertLabelWrapper: {
+    marginVertical: 6,
+  },
+  dailyAlertLabel: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    color: COLORS.secondary,
+  },
+  dailyAlertKeywordWrapper: {
+    marginVertical: 8,
+    paddingVertical: 4,
+  },
+  dailyAlertKeyword: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: COLORS.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dailyAlertTextWrapper: {
+    marginVertical: 4,
   },
   navigationSection: {
     paddingHorizontal: 20,
@@ -2409,79 +2680,113 @@ const styles = StyleSheet.create({
   // Alertas del Timeline
   alertsSection: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 25,
+  },
+  alertsSectionHeader: {
+    marginBottom: 16,
   },
   alertsSectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 15,
+    marginBottom: 4,
+  },
+  alertsSectionSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   alertCard: {
     backgroundColor: COLORS.accent,
-    borderRadius: 15,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    borderLeftWidth: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
     position: 'relative',
   },
   alertCloseButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 10,
     zIndex: 10,
     padding: 4,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary + '80',
   },
   alertHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingRight: 30,
   },
   alertIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: 28,
+    marginRight: 14,
+    marginTop: 2,
   },
   alertTitleContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   alertTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
     color: COLORS.text,
-    flex: 1,
+    lineHeight: 22,
+    marginBottom: 6,
   },
   alertTypeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1.5,
   },
   alertTypeBadgeText: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  alertMessageContainer: {
+    backgroundColor: COLORS.primary + '40',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
   },
   alertMessage: {
     fontSize: 14,
     color: COLORS.text,
+    lineHeight: 22,
+  },
+  alertMessageTitle: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: COLORS.secondary,
+    marginTop: 8,
+  },
+  alertMessageBullet: {
+    fontSize: 13,
+    color: COLORS.text,
     lineHeight: 20,
-    marginBottom: 10,
+    marginLeft: 8,
   },
   alertActionContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    backgroundColor: COLORS.primary + '60',
+    padding: 10,
+    borderRadius: 10,
   },
   alertAction: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
+    flex: 1,
   },
   aiFloatingButton: {
     position: 'absolute',
