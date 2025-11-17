@@ -218,35 +218,63 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
         Análisis personalizado de tu progreso diario en calorías e hidratación
       </Text>
 
-      <TouchableOpacity
-        style={styles.getFeedbackButton}
-        onPress={fetchFeedback}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <>
-            <Ionicons name="analytics" size={28} color="#fff" />
-            <Text style={styles.getFeedbackButtonText}>
-              Generar Análisis IA
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.getFeedbackButton}
+          onPress={fetchFeedback}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <View style={styles.buttonIconContainer}>
+                <Ionicons name="analytics" size={28} color="#fff" />
+                <View style={styles.sparkleIcon}>
+                  <Ionicons name="sparkles" size={16} color="#fff" />
+                </View>
+              </View>
+              <Text style={styles.getFeedbackButtonText}>
+                Generar Análisis IA
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+        
+        <View style={styles.tapHint}>
+          <Ionicons name="hand-left" size={16} color={COLORS.secondary} />
+          <Text style={styles.tapHintText}>Toca para generar tu análisis personalizado</Text>
+        </View>
+      </View>
 
       <View style={styles.featuresList}>
+        <Text style={styles.featuresTitle}>¿Qué obtendrás?</Text>
         <View style={styles.featureItem}>
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
-          <Text style={styles.featureText}>Evaluación de calorías e hidratación</Text>
+          <View style={styles.featureIconContainer}>
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+          </View>
+          <View style={styles.featureTextContainer}>
+            <Text style={styles.featureTextBold}>Evaluación Completa</Text>
+            <Text style={styles.featureText}>Análisis de calorías e hidratación del día</Text>
+          </View>
         </View>
         <View style={styles.featureItem}>
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
-          <Text style={styles.featureText}>Recomendaciones personalizadas</Text>
+          <View style={styles.featureIconContainer}>
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+          </View>
+          <View style={styles.featureTextContainer}>
+            <Text style={styles.featureTextBold}>Recomendaciones IA</Text>
+            <Text style={styles.featureText}>Consejos personalizados según tu progreso</Text>
+          </View>
         </View>
         <View style={styles.featureItem}>
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
-          <Text style={styles.featureText}>Sugerencias de próxima comida</Text>
+          <View style={styles.featureIconContainer}>
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.secondary} />
+          </View>
+          <View style={styles.featureTextContainer}>
+            <Text style={styles.featureTextBold}>Próxima Comida</Text>
+            <Text style={styles.featureText}>Sugerencias de qué comer según tu plan</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -306,11 +334,32 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
       >
         {loading && !feedback ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <View style={styles.aiIconContainer}>
+              <Ionicons name="bulb" size={80} color={COLORS.secondary} />
+              <View style={styles.aiSparkle}>
+                <Ionicons name="sparkles" size={32} color={COLORS.secondary} />
+              </View>
+            </View>
+            <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 20 }} />
             <Text style={styles.loadingText}>Analizando tu progreso...</Text>
             <Text style={styles.loadingSubtext}>
-              La IA está generando recomendaciones personalizadas
+              La IA está procesando tus datos de nutrición e hidratación para generar recomendaciones personalizadas
             </Text>
+            
+            <View style={styles.loadingSteps}>
+              <View style={styles.loadingStep}>
+                <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                <Text style={styles.loadingStepText}>Recopilando datos del día</Text>
+              </View>
+              <View style={styles.loadingStep}>
+                <Ionicons name="sync" size={20} color={COLORS.secondary} />
+                <Text style={styles.loadingStepText}>Procesando con IA...</Text>
+              </View>
+              <View style={styles.loadingStep}>
+                <Ionicons name="ellipsis-horizontal-circle" size={20} color={COLORS.textSecondary} />
+                <Text style={styles.loadingStepText}>Generando recomendaciones</Text>
+              </View>
+            </View>
           </View>
         ) : error && !feedback ? (
           renderError()
@@ -433,39 +482,92 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     lineHeight: 24,
   },
-  featuresList: {
-    marginTop: 30,
-    width: '100%',
-    alignItems: 'flex-start',
-  },
-  featureItem: {
-    flexDirection: 'row',
+  buttonContainer: {
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 10,
-  },
-  featureText: {
-    fontSize: 14,
-    color: COLORS.text,
+    marginBottom: 10,
   },
   getFeedbackButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.secondary,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
+    borderRadius: 16,
     shadowColor: COLORS.secondary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+    minWidth: 260,
+  },
+  buttonIconContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  sparkleIcon: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
   },
   getFeedbackButtonText: {
     color: '#fff',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  tapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    backgroundColor: COLORS.accent,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    gap: 6,
+  },
+  tapHintText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  featuresList: {
+    marginTop: 30,
+    width: '100%',
+    backgroundColor: COLORS.accent,
+    padding: 20,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  featuresTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
+    color: COLORS.text,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 12,
+  },
+  featureIconContainer: {
+    marginTop: 2,
+  },
+  featureTextContainer: {
+    flex: 1,
+  },
+  featureTextBold: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  featureText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   viewCachedButton: {
     flexDirection: 'row',
@@ -500,6 +602,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     paddingHorizontal: 40,
+    lineHeight: 20,
+  },
+  loadingSteps: {
+    marginTop: 30,
+    backgroundColor: COLORS.accent,
+    padding: 20,
+    borderRadius: 16,
+    width: '85%',
+  },
+  loadingStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  loadingStepText: {
+    fontSize: 13,
+    color: COLORS.text,
   },
   errorContainer: {
     flex: 1,

@@ -1075,6 +1075,19 @@ export default function DashboardScreen({ navigation, route }) {
               <Text style={styles.unifiedIcon}>{dashboardData.currentAlert.icon}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.unifiedTitle}>{dashboardData.currentAlert.title}</Text>
+                <TouchableOpacity 
+                  style={styles.helpButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Alert.alert(
+                      '💡 Advertencia del Día',
+                      'Esta es una alerta generada por IA basada en tu plan de corte de peso. Revisa cuidadosamente las instrucciones para optimizar tu progreso.',
+                      [{ text: 'Entendido' }]
+                    );
+                  }}
+                >
+                  <Ionicons name="help-circle-outline" size={18} color={COLORS.secondary} />
+                </TouchableOpacity>
               </View>
             </View>
             <Ionicons
@@ -1323,6 +1336,19 @@ export default function DashboardScreen({ navigation, route }) {
               <Text style={styles.unifiedIcon}>📅</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.unifiedTitle}>Plan del Día {currentDayData.day}</Text>
+                <TouchableOpacity 
+                  style={styles.helpButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Alert.alert(
+                      '📅 Plan del Día',
+                      'Aquí encontrarás tus objetivos diarios: peso meta, calorías, hidratación y cardio. Estos valores están calculados específicamente para el día ' + currentDayData.day + ' de tu plan de corte.',
+                      [{ text: 'Entendido' }]
+                    );
+                  }}
+                >
+                  <Ionicons name="help-circle-outline" size={18} color={COLORS.secondary} />
+                </TouchableOpacity>
               </View>
             </View>
             <Ionicons
@@ -1668,6 +1694,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     lineHeight: 24,
+  },
+  helpButton: {
+    marginLeft: 8,
+    padding: 4,
   },
   unifiedBadge: {
     paddingHorizontal: 12,

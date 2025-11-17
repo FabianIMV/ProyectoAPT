@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions, Animated, Platform } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function RecommendationsScreen({ navigation }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
+  
   const [recommendations] = useState([
     {
       id: 1,
@@ -75,6 +81,65 @@ export default function RecommendationsScreen({ navigation }) {
     }
   };
 
+  const scrollToIndex = (index) => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToIndex({ animated: true, index });
+      setCurrentIndex(index);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      scrollToIndex(currentIndex - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex < recommendations.length - 1) {
+      scrollToIndex(currentIndex + 1);
+    }
+  };
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentIndex(viewableItems[0].index || 0);
+    }
+  }).current;
+
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+
+  const renderRecommendationCard = ({ item, index }) => (
+    <View style={styles.carouselItemContainer}>
+      <View style={styles.recommendationCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.iconContainer}>
+            <View style={[styles.iconCircle, { backgroundColor: item.iconColor }]}>
+              <Ionicons name={item.icon} size={28} color="white" />
+            </View>
+          </View>
+          <View style={styles.headerTextContainer}>
+            <View style={styles.titleRow}>
+              <Text style={styles.categoryLabel}>{item.category}</Text>
+              <View style={[styles.priorityTag, { backgroundColor: getPriorityColor(item.priority) }]}>
+                <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
+              </View>
+            </View>
+            <Text style={styles.recTitle}>{item.title}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.recDescription}>{item.description}</Text>
+
+        <TouchableOpacity style={styles.actionButton}>
+          <Text style={styles.actionButtonText}>{item.action}</Text>
+          <Ionicons name="arrow-forward" size={18} color="white" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -109,37 +174,112 @@ export default function RecommendationsScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Recommendations List */}
+      {/* Recommendations Carousel */}
       <View style={styles.recommendationsSection}>
-        <Text style={styles.sectionTitle}>Tus Recomendaciones</Text>
-
-        {recommendations.map((rec) => (
-          <View key={rec.id} style={styles.recommendationCard}>
-            <View style={styles.cardHeader}>
-              <View style={styles.iconContainer}>
-                <View style={[styles.iconCircle, { backgroundColor: rec.iconColor }]}>
-                  <Ionicons name={rec.icon} size={24} color="white" />
-                </View>
-              </View>
-              <View style={styles.headerTextContainer}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.categoryLabel}>{rec.category}</Text>
-                  <View style={[styles.priorityTag, { backgroundColor: getPriorityColor(rec.priority) }]}>
-                    <Text style={styles.priorityText}>{getPriorityLabel(rec.priority)}</Text>
-                  </View>
-                </View>
-                <Text style={styles.recTitle}>{rec.title}</Text>
-              </View>
-            </View>
-
-            <Text style={styles.recDescription}>{rec.description}</Text>
-
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>{rec.action}</Text>
-              <Ionicons name="arrow-forward" size={18} color="white" />
-            </TouchableOpacity>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Tus Recomendaciones</Text>
+          <View style={styles.navigationHint}>
+            <Ionicons name="chevron-back" size={16} color={COLORS.secondary} />
+            <Text style={styles.hintText}>Desliza</Text>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.secondary} />
           </View>
-        ))}
+        </View>
+
+        {/* Counter */}
+        <View style={styles.counterContainer}>
+          <Text style={styles.counterText}>
+            {currentIndex + 1} de {recommendations.length}
+          </Text>
+        </View>
+
+        {/* Carousel */}
+        <FlatList
+          ref={flatListRef}
+          data={recommendations}
+          renderItem={renderRecommendationCard}
+          keyExtractor={(item) => item.id.toString()}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: false }
+          )}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          snapToAlignment="center"
+          decelerationRate="fast"
+          getItemLayout={(data, index) => ({
+            length: SCREEN_WIDTH - 40,
+            offset: (SCREEN_WIDTH - 40) * index,
+            index,
+          })}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          initialNumToRender={1}
+        />
+
+        {/* Navigation Arrows */}
+        {currentIndex > 0 && (
+          <TouchableOpacity
+            style={[styles.arrowButton, styles.leftArrow]}
+            onPress={handlePrevious}
+            activeOpacity={0.7}
+            accessibilityLabel="Recomendación anterior"
+            accessibilityRole="button"
+          >
+            <Ionicons name="chevron-back" size={28} color="white" />
+          </TouchableOpacity>
+        )}
+        {currentIndex < recommendations.length - 1 && (
+          <TouchableOpacity
+            style={[styles.arrowButton, styles.rightArrow]}
+            onPress={handleNext}
+            activeOpacity={0.7}
+            accessibilityLabel="Siguiente recomendación"
+            accessibilityRole="button"
+          >
+            <Ionicons name="chevron-forward" size={28} color="white" />
+          </TouchableOpacity>
+        )}
+
+        {/* Dot Indicators */}
+        <View style={styles.dotContainer}>
+          {recommendations.map((_, index) => {
+            const inputRange = [
+              (index - 1) * (SCREEN_WIDTH - 40),
+              index * (SCREEN_WIDTH - 40),
+              (index + 1) * (SCREEN_WIDTH - 40),
+            ];
+
+            const dotWidth = scrollX.interpolate({
+              inputRange,
+              outputRange: [8, 20, 8],
+              extrapolate: 'clamp',
+            });
+
+            const opacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.3, 1, 0.3],
+              extrapolate: 'clamp',
+            });
+
+            return (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.dot,
+                  {
+                    width: dotWidth,
+                    opacity,
+                    backgroundColor: index === currentIndex ? COLORS.secondary : COLORS.textSecondary,
+                  },
+                ]}
+              />
+            );
+          })}
+        </View>
       </View>
 
       {/* Tips Section */}
@@ -228,19 +368,96 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   recommendationsSection: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.text,
+  },
+  navigationHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 4,
+  },
+  hintText: {
+    fontSize: 12,
+    color: COLORS.secondary,
+    fontWeight: '600',
+    marginHorizontal: 4,
+  },
+  counterContainer: {
+    alignItems: 'center',
     marginBottom: 15,
+  },
+  counterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    backgroundColor: COLORS.accent,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+  },
+  carouselItemContainer: {
+    width: SCREEN_WIDTH - 40,
+    paddingHorizontal: 20,
   },
   recommendationCard: {
     backgroundColor: COLORS.accent,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderLeftWidth: 5,
+    borderLeftColor: COLORS.secondary,
+  },
+  arrowButton: {
+    position: 'absolute',
+    top: '45%',
+    backgroundColor: COLORS.secondary,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+    zIndex: 10,
+  },
+  leftArrow: {
+    left: 10,
+  },
+  rightArrow: {
+    right: 10,
+  },
+  dotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+    gap: 8,
+  },
+  dot: {
+    height: 8,
+    borderRadius: 4,
   },
   cardHeader: {
     flexDirection: 'row',

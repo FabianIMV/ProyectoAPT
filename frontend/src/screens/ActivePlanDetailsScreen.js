@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { WEIGHT_CUT_API } from '../config/api';
@@ -338,12 +339,29 @@ export default function ActivePlanDetailsScreen({ route, navigation }) {
   };
 
   const tabs = [
-    { key: 'overview', label: 'Resumen' },
-    { key: 'nutrition', label: 'Nutrición' },
-    { key: 'hydration', label: 'Hidratación' },
-    { key: 'cardio', label: 'Cardio' },
-    { key: 'recommendations', label: 'Consejos' },
+    { key: 'overview', label: 'Resumen', icon: 'stats-chart' },
+    { key: 'nutrition', label: 'Nutrición', icon: 'nutrition' },
+    { key: 'hydration', label: 'Hidratación', icon: 'water' },
+    { key: 'cardio', label: 'Cardio', icon: 'bicycle' },
+    { key: 'recommendations', label: 'Consejos', icon: 'bulb' },
   ];
+
+  const getCurrentTabIndex = () => {
+    return tabs.findIndex(tab => tab.key === activeTab);
+  };
+
+  const handleTabChange = (direction) => {
+    const currentIndex = getCurrentTabIndex();
+    let newIndex = currentIndex;
+    
+    if (direction === 'next' && currentIndex < tabs.length - 1) {
+      newIndex = currentIndex + 1;
+    } else if (direction === 'prev' && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    }
+    
+    setActiveTab(tabs[newIndex].key);
+  };
 
   return (
     <View style={styles.container}>
@@ -358,24 +376,78 @@ export default function ActivePlanDetailsScreen({ route, navigation }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.tabBar}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabContainer}
-        >
-          {tabs.map((tab) => (
+      <View style={styles.tabBarContainer}>
+        {/* Tab Navigation Counter and Hint */}
+        <View style={styles.tabNavigationInfo}>
+          <View style={styles.tabCounter}>
+            <Text style={styles.tabCounterText}>
+              {getCurrentTabIndex() + 1} de {tabs.length}
+            </Text>
+          </View>
+          <View style={styles.swipeHint}>
+            <Ionicons name="chevron-back" size={14} color={COLORS.secondary} />
+            <Text style={styles.swipeHintText}>Desliza para navegar</Text>
+            <Ionicons name="chevron-forward" size={14} color={COLORS.secondary} />
+          </View>
+        </View>
+
+        {/* Tab Bar */}
+        <View style={styles.tabBar}>
+          {/* Left Arrow */}
+          {getCurrentTabIndex() > 0 && (
             <TouchableOpacity
-              key={tab.key}
-              style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-              onPress={() => setActiveTab(tab.key)}
+              style={styles.tabArrowLeft}
+              onPress={() => handleTabChange('prev')}
+              activeOpacity={0.7}
+              accessibilityLabel="Tab anterior"
+              accessibilityRole="button"
             >
-              <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
-                {tab.label}
-              </Text>
+              <Ionicons name="chevron-back" size={20} color={COLORS.secondary} />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabContainer}
+            bounces={false}
+          >
+            {tabs.map((tab, index) => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, activeTab === tab.key && styles.activeTab]}
+                onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.7}
+                accessibilityLabel={`Tab ${tab.label}`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === tab.key }}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={16}
+                  color={activeTab === tab.key ? COLORS.primary : COLORS.textSecondary}
+                  style={styles.tabIcon}
+                />
+                <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          {/* Right Arrow */}
+          {getCurrentTabIndex() < tabs.length - 1 && (
+            <TouchableOpacity
+              style={styles.tabArrowRight}
+              onPress={() => handleTabChange('next')}
+              activeOpacity={0.7}
+              accessibilityLabel="Siguiente tab"
+              accessibilityRole="button"
+            >
+              <Ionicons name="chevron-forward" size={20} color={COLORS.secondary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView style={styles.scrollContent}>
@@ -457,27 +529,87 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 60,
   },
-  tabBar: {
+  tabBarContainer: {
     backgroundColor: COLORS.accent,
-    height: 60,
-    justifyContent: 'center',
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  tabNavigationInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+  tabCounter: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  tabCounterText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.secondary,
+  },
+  swipeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  swipeHintText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginHorizontal: 4,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 50,
+    position: 'relative',
+  },
+  tabArrowLeft: {
+    position: 'absolute',
+    left: 0,
+    zIndex: 10,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  tabArrowRight: {
+    position: 'absolute',
+    right: 0,
+    zIndex: 10,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
   tabContainer: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 40,
     alignItems: 'center',
     minWidth: width,
   },
   tab: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     marginHorizontal: 4,
     borderRadius: 16,
     backgroundColor: 'transparent',
-    minWidth: 70,
-    alignItems: 'center',
+    minWidth: 80,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   activeTab: {
     backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  tabIcon: {
+    marginRight: 6,
   },
   tabText: {
     color: COLORS.textSecondary,
