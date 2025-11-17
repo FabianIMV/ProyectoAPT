@@ -1140,56 +1140,100 @@ export default function DashboardScreen({ navigation, route }) {
                 </Text>
               </View>
 
-              {/* Mensaje con formateo simple pero efectivo */}
+              {/* Mensaje con formateo mejorado y estilizado */}
               <View style={styles.unifiedContentBox}>
                 {(() => {
-                  const message = dashboardData.currentAlert.message;
+                  let text = dashboardData.currentAlert.message;
+                  
+                  // Lista de palabras clave que son títulos
                   const keywords = [
-                    'PESAJE OFICIAL', 'CORTE DE AGUA', 'IR AL BAÑO', 'ROPA LIGERA',
-                    'HIDRATACIÓN', 'CALORÍAS', 'IMPORTANTE', 'CRÍTICO', 'ATENCIÓN'
+                    'PESAJE OFICIAL',
+                    'CORTE DE AGUA',
+                    'IR AL BAÑO',
+                    'ROPA LIGERA',
+                    'PESAJE DE VERIFICACIÓN',
+                    'DESPERTAR',
+                    'EVITAR',
+                    'HIDRATACIÓN',
+                    'CALORÍAS'
                   ];
                   
-                  // Dividir el mensaje en líneas y procesar cada una
-                  const lines = message.split('\n').flatMap(line => {
-                    // Si una línea es muy larga, intentar dividirla por puntos
-                    if (line.length > 100 && line.includes('. ')) {
-                      return line.split('. ').map((s, i, arr) => 
-                        i < arr.length - 1 ? s + '.' : s
-                      );
+                  // Separar el texto en partes basándose en las palabras clave
+                  const parts = [];
+                  let currentText = text;
+                  
+                  // Procesar el texto palabra clave por palabra clave
+                  keywords.forEach(keyword => {
+                    if (currentText.includes(keyword)) {
+                      const regex = new RegExp(`(${keyword}):?\\s*`, 'g');
+                      const splits = currentText.split(regex);
+                      
+                      splits.forEach((part, idx) => {
+                        if (part === keyword) {
+                          parts.push({ type: 'title', text: keyword });
+                        } else if (part && part.trim()) {
+                          // Buscar el siguiente keyword para saber dónde termina este
+                          let endText = part;
+                          const nextKeywordIndex = keywords.findIndex(kw => 
+                            part.includes(kw) && kw !== keyword
+                          );
+                          
+                          if (nextKeywordIndex > -1) {
+                            const nextKeyword = keywords[nextKeywordIndex];
+                            const splitAgain = part.split(nextKeyword);
+                            endText = splitAgain[0];
+                            // Reconstruir el resto
+                            if (splitAgain.length > 1) {
+                              currentText = nextKeyword + splitAgain.slice(1).join(nextKeyword);
+                            }
+                          }
+                          
+                          if (endText.trim()) {
+                            parts.push({ type: 'desc', text: endText.trim() });
+                          }
+                        }
+                      });
+                      
+                      currentText = currentText.replace(regex, '');
                     }
-                    return [line];
                   });
                   
-                  return lines.map((line, idx) => {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine) return null;
+                  // Renderizar las partes procesadas
+                  let renders = [];
+                  for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
                     
-                    // Detectar palabras clave
-                    const foundKeyword = keywords.find(kw => 
-                      trimmedLine.toUpperCase().includes(kw)
-                    );
-                    
-                    if (foundKeyword) {
-                      // Separar la palabra clave del resto del texto
-                      const parts = trimmedLine.split(new RegExp(`(${foundKeyword})`, 'i'));
-                      return (
-                        <Text key={idx} style={styles.unifiedText}>
-                          {parts.map((part, i) => {
-                            if (part.toUpperCase() === foundKeyword) {
-                              return <Text key={i} style={styles.unifiedKeyword}>{part}</Text>;
-                            }
-                            return <Text key={i}>{part}</Text>;
-                          })}
-                        </Text>
+                    if (part.type === 'title') {
+                      // Buscar si la descripción está en la siguiente parte
+                      const nextPart = parts[i + 1];
+                      const hasDesc = nextPart && nextPart.type === 'desc';
+                      
+                      // Limpiar emojis de la descripción
+                      const cleanDesc = hasDesc 
+                        ? nextPart.text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim()
+                        : '';
+                      
+                      renders.push(
+                        <View key={i} style={styles.alertSectionBlock}>
+                          <Text style={styles.alertTitleText}>{part.text}</Text>
+                          {hasDesc && cleanDesc && (
+                            <Text style={styles.alertDescriptionText}>{cleanDesc}</Text>
+                          )}
+                        </View>
                       );
+                      
+                      if (hasDesc) i++; // Saltar la descripción ya que la procesamos
                     }
-                    
-                    return (
-                      <Text key={idx} style={styles.unifiedText}>
-                        {trimmedLine}
-                      </Text>
+                  }
+                  
+                  // Si no se procesó nada, mostrar el texto original
+                  if (renders.length === 0) {
+                    renders.push(
+                      <Text key="original" style={styles.unifiedText}>{text}</Text>
                     );
-                  }).filter(Boolean);
+                  }
+                  
+                  return renders;
                 })()}
               </View>
             </View>
@@ -1663,6 +1707,87 @@ const styles = StyleSheet.create({
   unifiedKeyword: {
     fontWeight: 'bold',
     fontSize: 15,
+    color: COLORS.secondary,
+  },
+  alertKeywordSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary + '15',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginVertical: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.secondary,
+  },
+  alertKeywordIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  alertKeywordText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    letterSpacing: 0.5,
+  },
+  alertSectionBlock: {
+    marginBottom: 16,
+  },
+  alertTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  alertEmojiIcon: {
+    fontSize: 20,
+    marginRight: 10,
+    lineHeight: 24,
+  },
+  alertTitleText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  alertDescriptionText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 22,
+    paddingLeft: 4,
+  },
+  alertFormattedLine: {
+    marginVertical: 6,
+    paddingLeft: 4,
+  },
+  alertFormattedLineWithEmoji: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginVertical: 6,
+    paddingLeft: 4,
+  },
+  alertEmojiLeft: {
+    fontSize: 18,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  alertKeywordInline: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: COLORS.secondary,
+  },
+  alertEmoji: {
+    fontSize: 16,
+  },
+  alertTextLine: {
+    marginVertical: 6,
+    paddingLeft: 4,
+  },
+  alertInlineIcon: {
+    fontSize: 14,
+  },
+  alertTimeText: {
+    fontWeight: '600',
     color: COLORS.secondary,
   },
   header: {
