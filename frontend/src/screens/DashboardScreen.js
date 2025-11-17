@@ -45,6 +45,7 @@ export default function DashboardScreen({ navigation, route }) {
   const [showWeightReminder, setShowWeightReminder] = useState(false);
   const [yesterdayProgressData, setYesterdayProgressData] = useState(null);
   const [isPlanExpanded, setIsPlanExpanded] = useState(false);
+  const [isAlertExpanded, setIsAlertExpanded] = useState(false);
   const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
   const [aiRecommendations, setAiRecommendations] = useState([]); // Array de todas las recomendaciones
   const [timelineAlerts, setTimelineAlerts] = useState([]); // Alertas automáticas del timeline
@@ -1055,154 +1056,156 @@ export default function DashboardScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* === ADVERTENCIA DEL DÍA === */}
+      {/* === ADVERTENCIA DEL DÍA - Colapsable === */}
       {dashboardData && dashboardData.currentAlert && (
-        <View style={styles.dailyAlertSection}>
-          <View style={styles.dailyAlertHeader}>
-            <Text style={styles.dailyAlertHeaderTitle}>⚠️ Advertencia del Día</Text>
-            <Text style={styles.dailyAlertHeaderSubtitle}>
-              Recomendación importante para hoy
-            </Text>
-          </View>
-
-          <View style={[
-            styles.dailyAlertCard,
+        <TouchableOpacity
+          style={[
+            styles.unifiedCard,
             { borderLeftColor: 
               dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
               dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
             }
-          ]}>
-            {/* Badge de nivel */}
-            <View style={[
-              styles.dailyAlertBadge,
-              { 
-                backgroundColor: (
-                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
-                ) + '20',
-                borderColor: 
-                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
-              }
-            ]}>
-              <Text style={[
-                styles.dailyAlertBadgeText,
-                { color: 
-                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+          ]}
+          onPress={() => setIsAlertExpanded(!isAlertExpanded)}
+          activeOpacity={0.8}
+        >
+          {/* Header siempre visible */}
+          <View style={styles.unifiedCardHeader}>
+            <View style={styles.unifiedHeaderLeft}>
+              <Text style={styles.unifiedIcon}>{dashboardData.currentAlert.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unifiedTitle}>{dashboardData.currentAlert.title}</Text>
+              </View>
+            </View>
+            <Ionicons
+              name={isAlertExpanded ? "chevron-up" : "chevron-down"}
+              size={24}
+              color={COLORS.secondary}
+            />
+          </View>
+
+          {/* Vista compacta - Badge de nivel */}
+          {!isAlertExpanded && (
+            <View style={styles.unifiedCompactView}>
+              <View style={[
+                styles.unifiedBadge,
+                { 
+                  backgroundColor: (
+                    dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                    dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                  ) + '20',
+                  borderColor: 
+                    dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                    dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
                 }
               ]}>
-                {dashboardData.currentAlert.level}
-              </Text>
+                <Text style={[
+                  styles.unifiedBadgeText,
+                  { color: 
+                    dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                    dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                  }
+                ]}>
+                  {dashboardData.currentAlert.level}
+                </Text>
+              </View>
+              <Text style={styles.unifiedCompactHint}>Toca para ver detalles</Text>
             </View>
+          )}
 
-            {/* Header con ícono y título */}
-            <View style={styles.dailyAlertContentHeader}>
-              <Text style={styles.dailyAlertIcon}>{dashboardData.currentAlert.icon}</Text>
-              <Text style={styles.dailyAlertTitle}>{dashboardData.currentAlert.title}</Text>
-            </View>
+          {/* Vista expandida - Mensaje completo formateado */}
+          {isAlertExpanded && (
+            <View style={styles.unifiedExpandedView}>
+              {/* Badge de nivel */}
+              <View style={[
+                styles.unifiedBadge,
+                { 
+                  backgroundColor: (
+                    dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                    dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                  ) + '20',
+                  borderColor: 
+                    dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                    dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                }
+              ]}>
+                <Text style={[
+                  styles.unifiedBadgeText,
+                  { color: 
+                    dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                    dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                  }
+                ]}>
+                  {dashboardData.currentAlert.level}
+                </Text>
+              </View>
 
-            {/* Mensaje formateado */}
-            <View style={styles.dailyAlertMessageContainer}>
-              {(() => {
-                // Función para separar texto inteligentemente
-                const formatMessage = (message) => {
-                  let lines = message.split('\n');
-                  if (lines.length === 1 && message.length > 80) {
-                    message = message.replace(/\.\s*([A-Z0-9])/g, '.\n$1');
-                    message = message.replace(/\s+(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE|CORTE|HIDRATACIÓN|CALORÍAS)/gi, '\n\n$1');
-                    lines = message.split('\n');
-                  }
-                  return lines;
-                };
-                
-                const formattedLines = formatMessage(dashboardData.currentAlert.message);
-                
-                return formattedLines.map((line, idx) => {
-                  const trimmedLine = line.trim();
-                  if (trimmedLine === '') {
-                    return <View key={idx} style={{ height: 10 }} />;
-                  }
+              {/* Mensaje con formateo simple pero efectivo */}
+              <View style={styles.unifiedContentBox}>
+                {(() => {
+                  const message = dashboardData.currentAlert.message;
+                  const keywords = [
+                    'PESAJE OFICIAL', 'CORTE DE AGUA', 'IR AL BAÑO', 'ROPA LIGERA',
+                    'HIDRATACIÓN', 'CALORÍAS', 'IMPORTANTE', 'CRÍTICO', 'ATENCIÓN'
+                  ];
                   
-                  const isTitle = trimmedLine.endsWith(':');
-                  const isBullet = trimmedLine.startsWith('-') || trimmedLine.startsWith('•');
-                  const keywordPattern = /^(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE OFICIAL|CORTE DE AGUA|HIDRATACIÓN|CALORÍAS)/i;
-                  const hasKeyword = keywordPattern.test(trimmedLine);
-                  const labelPattern = /^([A-Za-zÀ-ÿ\s]+):\s*(.+)$/;
-                  const hasLabelPattern = labelPattern.test(trimmedLine);
+                  // Dividir el mensaje en líneas y procesar cada una
+                  const lines = message.split('\n').flatMap(line => {
+                    // Si una línea es muy larga, intentar dividirla por puntos
+                    if (line.length > 100 && line.includes('. ')) {
+                      return line.split('. ').map((s, i, arr) => 
+                        i < arr.length - 1 ? s + '.' : s
+                      );
+                    }
+                    return [line];
+                  });
                   
-                  if (isTitle) {
-                    return (
-                      <View key={idx} style={styles.dailyAlertTitleWrapper}>
-                        <Text style={styles.dailyAlertMessageTitle}>{trimmedLine}</Text>
-                      </View>
+                  return lines.map((line, idx) => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) return null;
+                    
+                    // Detectar palabras clave
+                    const foundKeyword = keywords.find(kw => 
+                      trimmedLine.toUpperCase().includes(kw)
                     );
-                  }
-                  
-                  if (hasKeyword) {
-                    const match = trimmedLine.match(keywordPattern);
-                    const keyword = match[1];
-                    const rest = trimmedLine.substring(keyword.length).trim();
-                    return (
-                      <View key={idx} style={styles.dailyAlertKeywordWrapper}>
-                        <Text style={styles.dailyAlertMessage}>
-                          <Text style={styles.dailyAlertKeyword}>{keyword}</Text>
-                          {rest && <Text>{' '}{rest}</Text>}
+                    
+                    if (foundKeyword) {
+                      // Separar la palabra clave del resto del texto
+                      const parts = trimmedLine.split(new RegExp(`(${foundKeyword})`, 'i'));
+                      return (
+                        <Text key={idx} style={styles.unifiedText}>
+                          {parts.map((part, i) => {
+                            if (part.toUpperCase() === foundKeyword) {
+                              return <Text key={i} style={styles.unifiedKeyword}>{part}</Text>;
+                            }
+                            return <Text key={i}>{part}</Text>;
+                          })}
                         </Text>
-                      </View>
-                    );
-                  }
-                  
-                  if (isBullet) {
-                    const bulletText = trimmedLine.substring(1).trim();
+                      );
+                    }
+                    
                     return (
-                      <View key={idx} style={styles.dailyAlertBulletWrapper}>
-                        <Text style={styles.dailyAlertBulletPoint}>•</Text>
-                        <Text style={styles.dailyAlertMessageBullet}>{bulletText}</Text>
-                      </View>
+                      <Text key={idx} style={styles.unifiedText}>
+                        {trimmedLine}
+                      </Text>
                     );
-                  }
-                  
-                  if (hasLabelPattern) {
-                    const match = trimmedLine.match(labelPattern);
-                    return (
-                      <View key={idx} style={styles.dailyAlertLabelWrapper}>
-                        <Text style={styles.dailyAlertMessage}>
-                          <Text style={styles.dailyAlertLabel}>{match[1]}:</Text>
-                          {' '}{match[2]}
-                        </Text>
-                      </View>
-                    );
-                  }
-                  
-                  return (
-                    <View key={idx} style={styles.dailyAlertTextWrapper}>
-                      <Text style={styles.dailyAlertMessage}>{trimmedLine}</Text>
-                    </View>
-                  );
-                });
-              })()}
+                  }).filter(Boolean);
+                })()}
+              </View>
             </View>
-          </View>
-        </View>
+          )}
+        </TouchableOpacity>
       )}
 
       {/* === ALERTAS AUTOMÁTICAS DEL TIMELINE === */}
       {timelineAlerts.filter(alert => !dismissedAlerts.includes(alert.id)).length > 0 && (
         <View style={styles.alertsSection}>
-          <View style={styles.alertsSectionHeader}>
-            <Text style={styles.alertsSectionTitle}>🔔 Alertas de Progreso</Text>
-            <Text style={styles.alertsSectionSubtitle}>
-              Notificaciones importantes sobre tu plan
-            </Text>
-          </View>
-          
           {timelineAlerts
             .filter(alert => !dismissedAlerts.includes(alert.id))
             .map((alert) => (
               <View 
                 key={alert.id}
-                style={[styles.alertCard, { borderLeftColor: alert.color }]}
+                style={[styles.unifiedCard, { borderLeftColor: alert.color }]}
               >
                 <TouchableOpacity
                   style={styles.alertCloseButton}
@@ -1212,21 +1215,23 @@ export default function DashboardScreen({ navigation, route }) {
                   <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
                 </TouchableOpacity>
                 
-                <View style={styles.alertHeader}>
-                  <Text style={styles.alertIcon}>{alert.icon}</Text>
-                  <View style={styles.alertTitleContainer}>
-                    <Text style={styles.alertTitle}>{alert.title}</Text>
-                    <View style={[styles.alertTypeBadge, { backgroundColor: alert.color + '20', borderColor: alert.color }]}>
-                      <Text style={[styles.alertTypeBadgeText, { color: alert.color }]}>
-                        {alert.type.toUpperCase()}
-                      </Text>
+                <View style={styles.unifiedCardHeader}>
+                  <View style={styles.unifiedHeaderLeft}>
+                    <Text style={styles.unifiedIcon}>{alert.icon}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.unifiedTitle}>{alert.title}</Text>
                     </View>
+                  </View>
+                  <View style={[styles.unifiedBadge, { backgroundColor: alert.color + '20', borderColor: alert.color }]}>
+                    <Text style={[styles.unifiedBadgeText, { color: alert.color }]}>
+                      {alert.type.toUpperCase()}
+                    </Text>
                   </View>
                 </View>
                 
                 {/* Mensaje formateado con mejor estructura */}
-                <View style={styles.alertMessageContainer}>
-                  <Text style={styles.alertMessage}>
+                <View style={styles.unifiedContentBox}>
+                  <Text style={styles.unifiedText}>
                     {alert.message.split('\n').map((line, idx) => {
                       // Detectar si la línea tiene un título (termina con :)
                       const isTitle = line.trim().endsWith(':');
@@ -1236,9 +1241,9 @@ export default function DashboardScreen({ navigation, route }) {
                       return (
                         <Text key={idx}>
                           {isTitle ? (
-                            <Text style={styles.alertMessageTitle}>{line}{'\n'}</Text>
+                            <Text style={styles.unifiedKeyword}>{line}{'\n'}</Text>
                           ) : isBullet ? (
-                            <Text style={styles.alertMessageBullet}>  {line}{'\n'}</Text>
+                            <Text>  {line}{'\n'}</Text>
                           ) : (
                             <Text>{line}{idx < alert.message.split('\n').length - 1 ? '\n' : ''}</Text>
                           )}
@@ -1265,14 +1270,16 @@ export default function DashboardScreen({ navigation, route }) {
       {currentDayData && (
         <>
         <TouchableOpacity
-          style={styles.todayCard}
+          style={[styles.unifiedCard, { borderLeftColor: COLORS.secondary }]}
           onPress={() => setIsPlanExpanded(!isPlanExpanded)}
           activeOpacity={0.8}
         >
-          <View style={styles.todayCardHeader}>
-            <View>
-              <Text style={styles.todayTitle}>📅 Plan del Día {currentDayData.day}</Text>
-
+          <View style={styles.unifiedCardHeader}>
+            <View style={styles.unifiedHeaderLeft}>
+              <Text style={styles.unifiedIcon}>📅</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.unifiedTitle}>Plan del Día {currentDayData.day}</Text>
+              </View>
             </View>
             <Ionicons
               name={isPlanExpanded ? "chevron-up" : "chevron-down"}
@@ -1283,7 +1290,7 @@ export default function DashboardScreen({ navigation, route }) {
 
           {/* Vista compacta - siempre visible */}
           {!isPlanExpanded && (
-            <View style={styles.todayCompactView}>
+            <View style={styles.unifiedCompactView}>
               <View style={styles.todayTargetsRow}>
                 <View style={styles.todayCompactItem}>
                   <Text style={styles.todayCompactIcon}>🎯</Text>
@@ -1300,13 +1307,13 @@ export default function DashboardScreen({ navigation, route }) {
                   </View>
                 )}
               </View>
-              <Text style={styles.todayCompactHint}>Toca para ver detalles</Text>
+              <Text style={styles.unifiedCompactHint}>Toca para ver detalles</Text>
             </View>
           )}
 
           {/* Vista expandida */}
           {isPlanExpanded && (
-            <View style={styles.todayExpandedView}>
+            <View style={styles.unifiedExpandedView}>
               <View style={styles.todayTargetsGrid}>
                 <View style={styles.todayTargetItem}>
                   <Text style={styles.todayTargetIcon}>🎯</Text>
@@ -1583,6 +1590,80 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  // ===== ESTILOS UNIFICADOS PARA TODAS LAS TARJETAS =====
+  unifiedCard: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderLeftWidth: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  unifiedCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unifiedHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  unifiedIcon: {
+    fontSize: 28,
+  },
+  unifiedTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    lineHeight: 24,
+  },
+  unifiedBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  unifiedBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  unifiedCompactView: {
+    marginTop: 12,
+  },
+  unifiedCompactHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  unifiedExpandedView: {
+    marginTop: 16,
+  },
+  unifiedContentBox: {
+    backgroundColor: COLORS.primary + '40',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+  },
+  unifiedText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  unifiedKeyword: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: COLORS.secondary,
   },
   header: {
     paddingHorizontal: 20,
@@ -1973,6 +2054,39 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
     color: COLORS.secondary,
+  },
+  dailyAlertCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  dailyAlertHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  dailyAlertHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  dailyAlertCompactView: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  dailyAlertCompactHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  dailyAlertExpandedView: {
+    marginTop: 12,
+    color: COLORS.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -2182,9 +2296,15 @@ const styles = StyleSheet.create({
   todayCard: {
     backgroundColor: COLORS.accent,
     marginHorizontal: 20,
-    marginBottom: 15,
-    borderRadius: 15,
+    marginBottom: 16,
+    borderRadius: 16,
     padding: 20,
+    borderLeftWidth: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
   },
   todayTitle: {
     fontSize: 18,
@@ -2663,8 +2783,7 @@ const styles = StyleSheet.create({
   // Botón flotante de IA
   // Alertas del Timeline
   alertsSection: {
-    paddingHorizontal: 20,
-    marginBottom: 25,
+    marginBottom: 10,
   },
   alertsSectionHeader: {
     marginBottom: 16,
