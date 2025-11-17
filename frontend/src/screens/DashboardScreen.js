@@ -1055,6 +1055,138 @@ export default function DashboardScreen({ navigation, route }) {
         </View>
       )}
 
+      {/* === ADVERTENCIA DEL DÍA === */}
+      {dashboardData && dashboardData.currentAlert && (
+        <View style={styles.dailyAlertSection}>
+          <View style={styles.dailyAlertHeader}>
+            <Text style={styles.dailyAlertHeaderTitle}>⚠️ Advertencia del Día</Text>
+            <Text style={styles.dailyAlertHeaderSubtitle}>
+              Recomendación importante para hoy
+            </Text>
+          </View>
+
+          <View style={[
+            styles.dailyAlertCard,
+            { borderLeftColor: 
+              dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+              dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+            }
+          ]}>
+            {/* Badge de nivel */}
+            <View style={[
+              styles.dailyAlertBadge,
+              { 
+                backgroundColor: (
+                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                ) + '20',
+                borderColor: 
+                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+              }
+            ]}>
+              <Text style={[
+                styles.dailyAlertBadgeText,
+                { color: 
+                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
+                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
+                }
+              ]}>
+                {dashboardData.currentAlert.level}
+              </Text>
+            </View>
+
+            {/* Header con ícono y título */}
+            <View style={styles.dailyAlertContentHeader}>
+              <Text style={styles.dailyAlertIcon}>{dashboardData.currentAlert.icon}</Text>
+              <Text style={styles.dailyAlertTitle}>{dashboardData.currentAlert.title}</Text>
+            </View>
+
+            {/* Mensaje formateado */}
+            <View style={styles.dailyAlertMessageContainer}>
+              {(() => {
+                // Función para separar texto inteligentemente
+                const formatMessage = (message) => {
+                  let lines = message.split('\n');
+                  if (lines.length === 1 && message.length > 80) {
+                    message = message.replace(/\.\s*([A-Z0-9])/g, '.\n$1');
+                    message = message.replace(/\s+(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE|CORTE|HIDRATACIÓN|CALORÍAS)/gi, '\n\n$1');
+                    lines = message.split('\n');
+                  }
+                  return lines;
+                };
+                
+                const formattedLines = formatMessage(dashboardData.currentAlert.message);
+                
+                return formattedLines.map((line, idx) => {
+                  const trimmedLine = line.trim();
+                  if (trimmedLine === '') {
+                    return <View key={idx} style={{ height: 10 }} />;
+                  }
+                  
+                  const isTitle = trimmedLine.endsWith(':');
+                  const isBullet = trimmedLine.startsWith('-') || trimmedLine.startsWith('•');
+                  const keywordPattern = /^(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE OFICIAL|CORTE DE AGUA|HIDRATACIÓN|CALORÍAS)/i;
+                  const hasKeyword = keywordPattern.test(trimmedLine);
+                  const labelPattern = /^([A-Za-zÀ-ÿ\s]+):\s*(.+)$/;
+                  const hasLabelPattern = labelPattern.test(trimmedLine);
+                  
+                  if (isTitle) {
+                    return (
+                      <View key={idx} style={styles.dailyAlertTitleWrapper}>
+                        <Text style={styles.dailyAlertMessageTitle}>{trimmedLine}</Text>
+                      </View>
+                    );
+                  }
+                  
+                  if (hasKeyword) {
+                    const match = trimmedLine.match(keywordPattern);
+                    const keyword = match[1];
+                    const rest = trimmedLine.substring(keyword.length).trim();
+                    return (
+                      <View key={idx} style={styles.dailyAlertKeywordWrapper}>
+                        <Text style={styles.dailyAlertMessage}>
+                          <Text style={styles.dailyAlertKeyword}>{keyword}</Text>
+                          {rest && <Text>{' '}{rest}</Text>}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  
+                  if (isBullet) {
+                    const bulletText = trimmedLine.substring(1).trim();
+                    return (
+                      <View key={idx} style={styles.dailyAlertBulletWrapper}>
+                        <Text style={styles.dailyAlertBulletPoint}>•</Text>
+                        <Text style={styles.dailyAlertMessageBullet}>{bulletText}</Text>
+                      </View>
+                    );
+                  }
+                  
+                  if (hasLabelPattern) {
+                    const match = trimmedLine.match(labelPattern);
+                    return (
+                      <View key={idx} style={styles.dailyAlertLabelWrapper}>
+                        <Text style={styles.dailyAlertMessage}>
+                          <Text style={styles.dailyAlertLabel}>{match[1]}:</Text>
+                          {' '}{match[2]}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  
+                  return (
+                    <View key={idx} style={styles.dailyAlertTextWrapper}>
+                      <Text style={styles.dailyAlertMessage}>{trimmedLine}</Text>
+                    </View>
+                  );
+                });
+              })()}
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* === ALERTAS AUTOMÁTICAS DEL TIMELINE === */}
       {timelineAlerts.filter(alert => !dismissedAlerts.includes(alert.id)).length > 0 && (
         <View style={styles.alertsSection}>
@@ -1344,154 +1476,6 @@ export default function DashboardScreen({ navigation, route }) {
               <Text style={styles.metricPlaceholder}>Sin tracking</Text>
             )}
           </TouchableOpacity>
-        </View>
-      )}
-
-      {/* === ADVERTENCIA DEL DÍA === */}
-      {dashboardData && dashboardData.currentAlert && (
-        <View style={styles.dailyAlertSection}>
-          <View style={styles.dailyAlertHeader}>
-            <Text style={styles.dailyAlertHeaderTitle}>⚠️ Advertencia del Día</Text>
-            <Text style={styles.dailyAlertHeaderSubtitle}>
-              Recomendación importante para hoy
-            </Text>
-          </View>
-
-          <View style={[
-            styles.dailyAlertCard,
-            { borderLeftColor: 
-              dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-              dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
-            }
-          ]}>
-            {/* Badge de nivel */}
-            <View style={[
-              styles.dailyAlertBadge,
-              { 
-                backgroundColor: (
-                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
-                ) + '20',
-                borderColor: 
-                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
-              }
-            ]}>
-              <Text style={[
-                styles.dailyAlertBadgeText,
-                { color: 
-                  dashboardData.currentAlert.level === 'CRITICAL' ? '#F44336' :
-                  dashboardData.currentAlert.level === 'WARNING' ? '#FF9800' : '#2196F3'
-                }
-              ]}>
-                {dashboardData.currentAlert.level}
-              </Text>
-            </View>
-
-            {/* Header con ícono y título */}
-            <View style={styles.dailyAlertContentHeader}>
-              <Text style={styles.dailyAlertIcon}>{dashboardData.currentAlert.icon}</Text>
-              <Text style={styles.dailyAlertTitle}>{dashboardData.currentAlert.title}</Text>
-            </View>
-
-            {/* Mensaje formateado */}
-            <View style={styles.dailyAlertMessageContainer}>
-              {(() => {
-                // Función para separar texto inteligentemente
-                const formatMessage = (message) => {
-                  // Primero, separar por saltos de línea existentes
-                  let lines = message.split('\n');
-                  
-                  // Si solo hay 1 línea larga, intentar separarla automáticamente
-                  if (lines.length === 1 && message.length > 80) {
-                    // Separar por punto seguido de mayúscula o números
-                    message = message.replace(/\.\s*([A-Z0-9])/g, '.\n$1');
-                    // Separar frases largas antes de palabras clave comunes
-                    message = message.replace(/\s+(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE|CORTE|HIDRATACIÓN|CALORÍAS)/gi, '\n\n$1');
-                    lines = message.split('\n');
-                  }
-                  
-                  return lines;
-                };
-                
-                const formattedLines = formatMessage(dashboardData.currentAlert.message);
-                
-                return formattedLines.map((line, idx) => {
-                  const trimmedLine = line.trim();
-                  
-                  // Detectar línea vacía para espaciado
-                  if (trimmedLine === '') {
-                    return <View key={idx} style={{ height: 10 }} />;
-                  }
-                  
-                  // Detectar títulos (terminan con :)
-                  const isTitle = trimmedLine.endsWith(':');
-                  
-                  // Detectar bullets (empiezan con - o •)
-                  const isBullet = trimmedLine.startsWith('-') || trimmedLine.startsWith('•');
-                  
-                  // Detectar palabras clave importantes al inicio
-                  const keywordPattern = /^(IMPORTANTE|CRÍTICO|ATENCIÓN|NOTA|RECOMENDACIÓN|PESAJE OFICIAL|CORTE DE AGUA|HIDRATACIÓN|CALORÍAS)/i;
-                  const hasKeyword = keywordPattern.test(trimmedLine);
-                  
-                  // Detectar patrones "Palabra: texto" (para negritas)
-                  const labelPattern = /^([A-Za-zÀ-ÿ\s]+):\s*(.+)$/;
-                  const hasLabelPattern = labelPattern.test(trimmedLine);
-                  
-                  if (isTitle) {
-                    return (
-                      <View key={idx} style={styles.dailyAlertTitleWrapper}>
-                        <Text style={styles.dailyAlertMessageTitle}>{trimmedLine}</Text>
-                      </View>
-                    );
-                  }
-                  
-                  if (hasKeyword) {
-                    const match = trimmedLine.match(keywordPattern);
-                    const keyword = match[1];
-                    const rest = trimmedLine.substring(keyword.length).trim();
-                    
-                    return (
-                      <View key={idx} style={styles.dailyAlertKeywordWrapper}>
-                        <Text style={styles.dailyAlertMessage}>
-                          <Text style={styles.dailyAlertKeyword}>{keyword}</Text>
-                          {rest && <Text>{' '}{rest}</Text>}
-                        </Text>
-                      </View>
-                    );
-                  }
-                  
-                  if (isBullet) {
-                    const bulletText = trimmedLine.substring(1).trim();
-                    return (
-                      <View key={idx} style={styles.dailyAlertBulletWrapper}>
-                        <Text style={styles.dailyAlertBulletPoint}>•</Text>
-                        <Text style={styles.dailyAlertMessageBullet}>{bulletText}</Text>
-                      </View>
-                    );
-                  }
-                  
-                  if (hasLabelPattern) {
-                    const match = trimmedLine.match(labelPattern);
-                    return (
-                      <View key={idx} style={styles.dailyAlertLabelWrapper}>
-                        <Text style={styles.dailyAlertMessage}>
-                          <Text style={styles.dailyAlertLabel}>{match[1]}:</Text>
-                          {' '}{match[2]}
-                        </Text>
-                      </View>
-                    );
-                  }
-                  
-                  return (
-                    <View key={idx} style={styles.dailyAlertTextWrapper}>
-                      <Text style={styles.dailyAlertMessage}>{trimmedLine}</Text>
-                    </View>
-                  );
-                });
-              })()}
-            </View>
-          </View>
         </View>
       )}
 

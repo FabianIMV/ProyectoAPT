@@ -44,7 +44,7 @@ export default function TabNavigator() {
       <Tab.Screen
         name="Calculator"
         component={WeightCutCalculatorScreen}
-        options={{ title: 'Calculadora' }}
+        options={{ title: 'Plan de Corte de Peso' }}
       />
       <Tab.Screen
         name="Dashboard"
