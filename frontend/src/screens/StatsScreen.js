@@ -619,11 +619,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 4,
     overflow: 'hidden',
+    maxWidth: '100%', // Fix iOS
   },
   detailProgressFill: {
     height: '100%',
     backgroundColor: COLORS.secondary,
     borderRadius: 4,
+    maxWidth: '100%', // Fix iOS
   },
   detailProgressText: {
     fontSize: 14,

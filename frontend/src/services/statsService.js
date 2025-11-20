@@ -1,16 +1,47 @@
 import { getDayProgress } from './progressService';
 
 /**
+ * Valida si hay suficientes datos para mostrar estadísticas significativas
+ */
+const hasMinimumDataRequirements = (daysWithData) => {
+  if (daysWithData.length === 0) return false;
+  
+  // Verificar que al menos 1 día tenga datos de calorías O agua
+  const hasNutritionData = daysWithData.some(day => {
+    const calories = day.actualCalories || day.actual_calories || 0;
+    const water = day.actualWaterLiters || day.actual_water_liters || 0;
+    return calories > 0 || water > 0;
+  });
+  
+  return hasNutritionData;
+};
+
+/**
  * Calcula estadísticas reales del progreso del usuario en su timeline
+ * Con validaciones robustas y lógica mejorada
  */
 export const calculateRealStats = async (userId, timelineId, currentDayNumber, timeline, activeWeightCut) => {
   try {
+    // Validación de parámetros esenciales
     if (!userId || !timelineId || !currentDayNumber || !timeline) {
+      console.log('❌ Faltan parámetros esenciales para calcular stats');
       return null;
     }
 
-    // Obtener progreso de todos los días hasta ahora
-    const daysToAnalyze = Math.min(currentDayNumber, timeline.total_days);
+    // Verificar que haya un plan activo
+    if (!activeWeightCut || !activeWeightCut.analysis_request) {
+      console.log('❌ No hay plan de corte activo');
+      return null;
+    }
+
+    // Solo calcular desde día 2 en adelante
+    if (currentDayNumber < 2) {
+      console.log('ℹ️ Estadísticas disponibles desde día 2');
+      return null;
+    }
+
+    // Obtener progreso de días anteriores (no incluir día actual para evitar datos incompletos)
+    const daysToAnalyze = currentDayNumber - 1; // Solo días completados
     const progressPromises = [];
     
     for (let day = 1; day <= daysToAnalyze; day++) {
@@ -24,31 +55,53 @@ export const calculateRealStats = async (userId, timelineId, currentDayNumber, t
       .filter(r => r.success && r.data)
       .map(r => r.data);
 
-    console.log('📊 Días con datos para stats:', daysWithData.length, 'de', daysToAnalyze);
+    console.log(`📊 Analizando ${daysWithData.length} días completados (de ${daysToAnalyze} posibles)`);
 
-    if (daysWithData.length === 0) {
-      console.log('⚠️ No hay datos de progreso registrados');
+    // Validar que haya datos mínimos necesarios
+    if (!hasMinimumDataRequirements(daysWithData)) {
+      console.log('⚠️ No hay suficientes datos para calcular estadísticas');
       return null;
     }
 
-    // Peso inicial y actual
-    const startWeight = parseFloat(activeWeightCut?.analysis_request?.currentWeightKg || 0);
-    const targetWeight = parseFloat(activeWeightCut?.analysis_request?.targetWeightKg || 0);
+    // === ANÁLISIS DE PESO ===
+    const startWeight = parseFloat(activeWeightCut.analysis_request.currentWeightKg || 0);
+    const targetWeight = parseFloat(activeWeightCut.analysis_request.targetWeightKg || 0);
     const totalWeightToLose = startWeight - targetWeight;
 
-    // Obtener último peso registrado
-    let currentWeight = startWeight;
-    for (let i = daysWithData.length - 1; i >= 0; i--) {
-      const weight = daysWithData[i].actualWeightKg || daysWithData[i].actual_weight_kg;
-      if (weight) {
-        currentWeight = parseFloat(weight);
-        break;
-      }
+    if (startWeight === 0 || targetWeight === 0) {
+      console.log('❌ Datos de peso del plan inválidos');
+      return null;
     }
 
+    // Buscar pesos registrados (excluyendo el peso inicial si aparece en día 1)
+    let weightDataPoints = [];
+    daysWithData.forEach((day, index) => {
+      const weight = day.actualWeightKg || day.actual_weight_kg;
+      const dayNumber = index + 1;
+      
+      if (weight && weight > 0) {
+        // Solo considerar pesos diferentes al inicial o si es día 2+
+        if (Math.abs(weight - startWeight) > 0.1 || dayNumber > 1) {
+          weightDataPoints.push({
+            day: dayNumber,
+            weight: parseFloat(weight)
+          });
+        }
+      }
+    });
+
+    const hasWeightData = weightDataPoints.length > 0;
+    
+    // Usar último peso registrado o peso inicial
+    const currentWeight = hasWeightData 
+      ? weightDataPoints[weightDataPoints.length - 1].weight 
+      : startWeight;
+
     const weightLost = startWeight - currentWeight;
-    const weightRemaining = currentWeight - targetWeight;
-    const weightProgress = (weightLost / totalWeightToLose) * 100;
+    const weightRemaining = Math.max(0, currentWeight - targetWeight);
+    const weightProgress = totalWeightToLose > 0 ? Math.max(0, (weightLost / totalWeightToLose) * 100) : 0;
+
+    console.log(`💪 Peso: inicio=${startWeight}kg, actual=${currentWeight}kg, perdido=${weightLost.toFixed(1)}kg, datos=${weightDataPoints.length}`);
 
     // Calcular peso esperado para hoy según el plan
     const todayIndex = currentDayNumber - 1;
@@ -59,7 +112,7 @@ export const calculateRealStats = async (userId, timelineId, currentDayNumber, t
     const weightDeviation = currentWeight - expectedWeightToday;
     const isAheadOfSchedule = weightDeviation < 0; // Si peso actual es menor que esperado, vamos adelantados
 
-    // Calcular promedios de nutrición
+    // === ANÁLISIS DE NUTRICIÓN ===
     let totalCalories = 0;
     let totalCaloriesTarget = 0;
     let totalWater = 0;
@@ -71,73 +124,144 @@ export const calculateRealStats = async (userId, timelineId, currentDayNumber, t
       const dayIndex = index;
       const dayTargets = timeline.timeline_data?.days?.[dayIndex]?.targets;
 
-      const calories = dayData.actualCalories || dayData.actual_calories || 0;
-      const water = dayData.actualWaterLiters || dayData.actual_water_liters || 0;
+      if (!dayTargets) return; // Skip si no hay targets del día
 
-      if (calories > 0) {
+      const calories = parseFloat(dayData.actualCalories || dayData.actual_calories || 0);
+      const water = parseFloat(dayData.actualWaterLiters || dayData.actual_water_liters || 0);
+      const caloriesTarget = parseFloat(dayTargets.caloriesIntake || 0);
+      const waterTarget = parseFloat(dayTargets.waterIntakeLiters || 0);
+
+      // Solo contar días con registros válidos (> 0)
+      if (calories > 0 && caloriesTarget > 0) {
         totalCalories += calories;
-        totalCaloriesTarget += dayTargets?.caloriesIntake || 0;
+        totalCaloriesTarget += caloriesTarget;
         daysWithCalories++;
       }
 
-      if (water > 0) {
+      if (water > 0 && waterTarget > 0) {
         totalWater += water;
-        totalWaterTarget += dayTargets?.waterIntakeLiters || 0;
+        totalWaterTarget += waterTarget;
         daysWithWater++;
       }
     });
 
-    const avgCalories = daysWithCalories > 0 ? Math.round(totalCalories / daysWithCalories) : 0;
-    const avgCaloriesTarget = daysWithCalories > 0 ? Math.round(totalCaloriesTarget / daysWithCalories) : 0;
-    const caloriesCompliance = avgCaloriesTarget > 0 ? (avgCalories / avgCaloriesTarget) * 100 : 0;
+    const hasCaloriesData = daysWithCalories > 0;
+    const hasWaterData = daysWithWater > 0;
 
-    const avgWater = daysWithWater > 0 ? (totalWater / daysWithWater).toFixed(1) : 0;
-    const avgWaterTarget = daysWithWater > 0 ? (totalWaterTarget / daysWithWater).toFixed(1) : 0;
-    const waterCompliance = avgWaterTarget > 0 ? (avgWater / avgWaterTarget) * 100 : 0;
+    const avgCalories = hasCaloriesData ? Math.round(totalCalories / daysWithCalories) : 0;
+    const avgCaloriesTarget = hasCaloriesData ? Math.round(totalCaloriesTarget / daysWithCalories) : 0;
+    const caloriesCompliance = (hasCaloriesData && avgCaloriesTarget > 0) 
+      ? Math.min(150, (avgCalories / avgCaloriesTarget) * 100) // Cap al 150% para evitar valores absurdos
+      : 0;
 
-    // Calcular racha de días cumpliendo metas
+    const avgWater = hasWaterData ? (totalWater / daysWithWater).toFixed(1) : '0.0';
+    const avgWaterTarget = hasWaterData ? (totalWaterTarget / daysWithWater).toFixed(1) : '0.0';
+    const waterCompliance = (hasWaterData && parseFloat(avgWaterTarget) > 0)
+      ? Math.min(150, (parseFloat(avgWater) / parseFloat(avgWaterTarget)) * 100) // Cap al 150%
+      : 0;
+
+    console.log(`🍽️ Nutrición: cal=${avgCalories}/${avgCaloriesTarget} (${caloriesCompliance.toFixed(0)}%), agua=${avgWater}/${avgWaterTarget}L (${waterCompliance.toFixed(0)}%)`);
+
+    // === ANÁLISIS DE RACHA ===
     let currentStreak = 0;
+    const COMPLIANCE_THRESHOLD = 0.7; // 70% mínimo para considerar día cumplido
+
     for (let i = daysWithData.length - 1; i >= 0; i--) {
       const dayData = daysWithData[i];
       const dayIndex = i;
       const dayTargets = timeline.timeline_data?.days?.[dayIndex]?.targets;
 
-      const calories = dayData.actualCalories || dayData.actual_calories || 0;
-      const caloriesTarget = dayTargets?.caloriesIntake || 0;
-      const water = dayData.actualWaterLiters || dayData.actual_water_liters || 0;
-      const waterTarget = dayTargets?.waterIntakeLiters || 0;
+      if (!dayTargets) continue;
 
-      // Considerar día cumplido si tiene al menos 80% de calorías y agua
-      const caloriesMet = calories >= (caloriesTarget * 0.8);
-      const waterMet = water >= (waterTarget * 0.8);
+      const calories = parseFloat(dayData.actualCalories || dayData.actual_calories || 0);
+      const caloriesTarget = parseFloat(dayTargets.caloriesIntake || 0);
+      const water = parseFloat(dayData.actualWaterLiters || dayData.actual_water_liters || 0);
+      const waterTarget = parseFloat(dayTargets.waterIntakeLiters || 0);
 
-      if (caloriesMet && waterMet) {
+      // Considerar día cumplido si:
+      // - Tiene datos de calorías Y agua
+      // - Ambos están al menos al 70% de la meta
+      const hasData = (calories > 0 || water > 0);
+      const caloriesMet = caloriesTarget > 0 ? (calories / caloriesTarget) >= COMPLIANCE_THRESHOLD : false;
+      const waterMet = waterTarget > 0 ? (water / waterTarget) >= COMPLIANCE_THRESHOLD : false;
+
+      if (hasData && caloriesMet && waterMet) {
         currentStreak++;
       } else {
         break; // Racha se rompe
       }
     }
 
-    // Calcular cumplimiento general
-    const overallCompliance = Math.round((caloriesCompliance + waterCompliance + weightProgress) / 3);
+    // === CUMPLIMIENTO GENERAL ===
+    // Calcular usando solo métricas con datos válidos
+    const metrics = [];
+    
+    if (hasWeightData && weightProgress > 0) {
+      metrics.push(Math.min(100, weightProgress)); // Peso no debe superar 100%
+    }
+    
+    if (hasCaloriesData) {
+      metrics.push(Math.min(100, caloriesCompliance)); // Cap a 100%
+    }
+    
+    if (hasWaterData) {
+      metrics.push(Math.min(100, waterCompliance)); // Cap a 100%
+    }
 
-    // Estado del plan
+    // Si no hay ninguna métrica válida, no se puede calcular cumplimiento
+    if (metrics.length === 0) {
+      console.log('⚠️ No hay métricas válidas para calcular cumplimiento');
+      return null;
+    }
+
+    const overallCompliance = Math.round(
+      metrics.reduce((sum, val) => sum + val, 0) / metrics.length
+    );
+
+    console.log(`🏆 Cumplimiento general: ${overallCompliance}% (${metrics.length} métricas), racha: ${currentStreak} días`);
+
+    // === ESTADO DEL PLAN ===
     let planStatus = 'on_track';
-    let planStatusMessage = '¡Vas perfecto según el plan!';
+    let planStatusMessage = '';
     let planStatusColor = '#4CAF50';
 
-    if (isAheadOfSchedule && Math.abs(weightDeviation) > 0.5) {
-      planStatus = 'ahead';
-      planStatusMessage = `¡Excelente! Vas ${Math.abs(weightDeviation).toFixed(1)}kg adelantado`;
-      planStatusColor = '#2196F3';
-    } else if (!isAheadOfSchedule && weightDeviation > 0.5) {
-      planStatus = 'behind';
-      planStatusMessage = `Estás ${weightDeviation.toFixed(1)}kg por encima del plan`;
-      planStatusColor = '#FF9800';
-    } else if (!isAheadOfSchedule && weightDeviation > 1.0) {
-      planStatus = 'critical';
-      planStatusMessage = `⚠️ ${weightDeviation.toFixed(1)}kg por encima - Ajusta tu plan`;
-      planStatusColor = '#F44336';
+    // Evaluar basándose en métricas disponibles
+    if (hasWeightData && weightDataPoints.length > 0) {
+      // Evaluar basándose en desviación de peso
+      if (isAheadOfSchedule && Math.abs(weightDeviation) > 0.5) {
+        planStatus = 'ahead';
+        planStatusMessage = `Excelente! Vas ${Math.abs(weightDeviation).toFixed(1)}kg adelantado`;
+        planStatusColor = '#2196F3';
+      } else if (!isAheadOfSchedule && weightDeviation > 1.0) {
+        planStatus = 'critical';
+        planStatusMessage = `Ajusta tu plan: +${weightDeviation.toFixed(1)}kg sobre meta`;
+        planStatusColor = '#F44336';
+      } else if (!isAheadOfSchedule && weightDeviation > 0.5) {
+        planStatus = 'behind';
+        planStatusMessage = `Ligeramente arriba: +${weightDeviation.toFixed(1)}kg`;
+        planStatusColor = '#FF9800';
+      } else {
+        planStatusMessage = 'Vas perfecto según el plan!';
+        planStatusColor = '#4CAF50';
+      }
+    } else {
+      // Sin datos de peso, evaluar por cumplimiento general
+      if (overallCompliance >= 90) {
+        planStatus = 'excellent';
+        planStatusMessage = `¡Excelente! ${overallCompliance}% cumplimiento`;
+        planStatusColor = '#4CAF50';
+      } else if (overallCompliance >= 70) {
+        planStatusMessage = `Buen progreso (${overallCompliance}%)`;
+        planStatusColor = '#2196F3';
+      } else if (overallCompliance >= 50) {
+        planStatus = 'behind';
+        planStatusMessage = `${overallCompliance}% - Puedes mejorar`;
+        planStatusColor = '#FF9800';
+      } else {
+        planStatus = 'critical';
+        planStatusMessage = `${overallCompliance}% - Enfócate más`;
+        planStatusColor = '#FF9800';
+      }
     }
 
     return {
@@ -151,14 +275,18 @@ export const calculateRealStats = async (userId, timelineId, currentDayNumber, t
       expectedWeightToday: expectedWeightToday.toFixed(1),
       weightDeviation: weightDeviation.toFixed(1),
       isAheadOfSchedule,
+      hasWeightData, // true si hay pesos registrados válidos
+      weightDataPoints: weightDataPoints.length, // Cantidad de registros
 
       // Nutrición
       avgCalories,
       avgCaloriesTarget,
       caloriesCompliance: Math.round(caloriesCompliance),
-      avgWater,
-      avgWaterTarget,
+      hasCaloriesData, // true si hay datos de calorías válidos
+      avgWater: parseFloat(avgWater),
+      avgWaterTarget: parseFloat(avgWaterTarget),
       waterCompliance: Math.round(waterCompliance),
+      hasWaterData, // true si hay datos de agua válidos
 
       // Progreso general
       daysCompleted: currentDayNumber - 1,
