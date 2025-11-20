@@ -114,7 +114,7 @@ export default function ProfileScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
-      <View style={{ paddingTop: 40 }} />
+      <View style={{ paddingTop: 30 }} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={

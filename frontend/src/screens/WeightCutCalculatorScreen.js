@@ -581,7 +581,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
-      <View style={{ paddingTop: 40 }} />
+      <View style={{ paddingTop: 18 }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
