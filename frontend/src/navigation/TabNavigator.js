@@ -29,32 +29,44 @@ export default function TabNavigator() {
         tabBarActiveTintColor: COLORS.secondary,
         tabBarInactiveTintColor: COLORS.textSecondary,
         tabBarStyle: {
-          backgroundColor: COLORS.primary,
-          borderTopColor: COLORS.accent,
+          backgroundColor: COLORS.accent,
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 6,
+          height: 65,
+          paddingBottom: 10,
+          paddingTop: 10,
         },
         headerStyle: {
           backgroundColor: COLORS.primary,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
         },
         headerTintColor: COLORS.text,
         headerTitleStyle: {
           fontWeight: 'bold',
+          fontSize: 18,
         },
       })}
     >
       <Tab.Screen
         name="Calculator"
         component={WeightCutCalculatorScreen}
-        options={{ title: 'Plan de Corte de Peso' }}
+        options={{ headerShown: false, tabBarLabel: 'Plan de Corte de Peso' }}
       />
       <Tab.Screen
         name="Dashboard"
         component={DashboardStackNavigator}
-        options={{ title: 'Avances', tabBarLabel: 'Avances', headerShown: false }}
+        options={{ tabBarLabel: 'Avances', headerShown: false }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: 'Perfil' }}
+        options={{ headerShown: false, tabBarLabel: 'Perfil' }}
       />
     </Tab.Navigator>
   );

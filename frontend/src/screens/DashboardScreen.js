@@ -821,6 +821,7 @@ export default function DashboardScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
+      <View style={{ paddingTop: 40 }} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -876,7 +877,6 @@ export default function DashboardScreen({ navigation, route }) {
             <Text style={styles.loadingText}>Actualizando datos...</Text>
           </View>
         )}
-        <Text style={styles.headerTitle}>Avance Diario</Text>
         {currentDayData && currentDayData.date && (
           <Text style={styles.todayDate}>
             {(() => {
@@ -1820,7 +1820,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 32 : 20,
+    paddingTop: 0,
     paddingBottom: 12,
   },
   headerTitle: {
@@ -2338,6 +2338,7 @@ const styles = StyleSheet.create({
   emptyStateCard: {
     backgroundColor: COLORS.accent,
     marginHorizontal: 20,
+    marginTop: 0,
     marginBottom: 15,
     borderRadius: 15,
     padding: 30,

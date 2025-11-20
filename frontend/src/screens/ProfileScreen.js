@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image, Dimensions, SafeAreaView } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { PROFILE_API } from '../config/api';
@@ -112,7 +112,9 @@ export default function ProfileScreen({ navigation, route }) {
   }
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
+      <View style={{ paddingTop: 40 }} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -124,60 +126,58 @@ export default function ProfileScreen({ navigation, route }) {
           />
         }
       >
-        {/* Header con gradiente */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerGradient}>
-            {refreshing && (
-              <View style={styles.loadingHeader}>
-                <ActivityIndicator size="small" color="#fff" />
-                <Text style={styles.loadingHeaderText}>Actualizando...</Text>
-              </View>
-            )}
-            
-            {/* Avatar y nombre - Layout horizontal */}
-            <View style={styles.profileMainSection}>
-              {/* Foto de perfil a la izquierda */}
-              <View style={styles.avatarContainer}>
-                {profileData.profile_picture_url ? (
-                  <Image
-                    source={{ uri: profileData.profile_picture_url }}
-                    style={styles.avatarImage}
-                  />
-                ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {profileData.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Información del usuario a la derecha */}
-              <View style={styles.userInfoContainer}>
-                <Text style={styles.userName}>{profileData.name}</Text>
-                <Text style={styles.userSubtitle}>Atleta Profesional</Text>
-              </View>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          {refreshing && (
+            <View style={styles.loadingHeader}>
+              <ActivityIndicator size="small" color={COLORS.secondary} />
+              <Text style={styles.loadingHeaderText}>Actualizando...</Text>
+            </View>
+          )}
+          
+          {/* Avatar y nombre - Layout horizontal */}
+          <View style={styles.profileMainSection}>
+            {/* Foto de perfil a la izquierda */}
+            <View style={styles.avatarContainer}>
+              {profileData.profile_picture_url ? (
+                <Image
+                  source={{ uri: profileData.profile_picture_url }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {profileData.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
             </View>
 
-            {/* Stats cards - 3 cards visuales */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <Ionicons name="fitness" size={24} color={COLORS.secondary} />
-                <Text style={styles.statValue}>{profileData.weight || '--'}</Text>
-                <Text style={styles.statLabel}>Peso (kg)</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Ionicons name="resize" size={24} color={COLORS.secondary} />
-                <Text style={styles.statValue}>
-                  {profileData.height ? (profileData.height / 100).toFixed(2) : '--'}
-                </Text>
-                <Text style={styles.statLabel}>Altura (m)</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Ionicons name="calendar" size={24} color={COLORS.secondary} />
-                <Text style={styles.statValue}>{profileData.age || '--'}</Text>
-                <Text style={styles.statLabel}>Años</Text>
-              </View>
+            {/* Información del usuario a la derecha */}
+            <View style={styles.userInfoContainer}>
+              <Text style={styles.userName}>{profileData.name}</Text>
+              <Text style={styles.userSubtitle}>Atleta Profesional</Text>
+            </View>
+          </View>
+
+          {/* Stats cards - 3 cards visuales */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Ionicons name="fitness" size={24} color={COLORS.secondary} />
+              <Text style={styles.statValue}>{profileData.weight || '--'}</Text>
+              <Text style={styles.statLabel}>Peso (kg)</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="resize" size={24} color={COLORS.secondary} />
+              <Text style={styles.statValue}>
+                {profileData.height ? (profileData.height / 100).toFixed(2) : '--'}
+              </Text>
+              <Text style={styles.statLabel}>Altura (m)</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="calendar" size={24} color={COLORS.secondary} />
+              <Text style={styles.statValue}>{profileData.age || '--'}</Text>
+              <Text style={styles.statLabel}>Años</Text>
             </View>
           </View>
         </View>
@@ -223,24 +223,33 @@ export default function ProfileScreen({ navigation, route }) {
         </View>
       </ScrollView>
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
   },
-  headerContainer: {
-    marginBottom: 20,
-  },
-  headerGradient: {
+  profileCard: {
     backgroundColor: COLORS.accent,
-    paddingTop: 60,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    marginHorizontal: 20,
+    marginTop: 0,
+    marginBottom: 20,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 200, 0.1)',
   },
   loadingHeader: {
     flexDirection: 'row',
@@ -314,15 +323,17 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: COLORS.primary,
-    borderRadius: 15,
-    padding: 15,
+    borderRadius: 18,
+    padding: 16,
     marginHorizontal: 5,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: COLORS.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 200, 0.1)',
   },
   statValue: {
     fontSize: 22,
@@ -348,10 +359,12 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 30,
     shadowColor: COLORS.secondary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 200, 0.15)',
   },
   editProfileIcon: {
     width: 50,
@@ -385,9 +398,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.accent,
-    borderRadius: 15,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   optionIcon: {
     width: 45,
@@ -414,15 +434,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF6B6B',
-    borderRadius: 15,
+    backgroundColor: '#ef4444',
+    borderRadius: 16,
     padding: 18,
     marginTop: 20,
-    shadowColor: '#FF6B6B',
+    marginBottom: 30,
+    shadowColor: '#ef4444',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   logoutIcon: {
     marginRight: 10,

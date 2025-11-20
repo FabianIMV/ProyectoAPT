@@ -11,7 +11,8 @@ import {
   Modal,
   FlatList,
   KeyboardAvoidingView,
-  Keyboard
+  Keyboard,
+  SafeAreaView
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -578,11 +579,14 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
+    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
+      <View style={{ paddingTop: 40 }} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
@@ -591,9 +595,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-        <Text style={styles.title}>Calculadora de Corte de Peso</Text>
-        <Text style={styles.subtitle}>Genera un plan personalizado con IA</Text>
-
         {/* === PASO 1: OBJETIVO DEL CORTE (ALWAYS VISIBLE) === */}
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>📊 Paso 1: Define tu Objetivo</Text>
@@ -1013,11 +1014,17 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         </Text>
       </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
@@ -1182,6 +1189,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
     borderRadius: 20,
     padding: 20,
+    marginTop: 0,
     marginBottom: 20,
     borderWidth: 2,
     borderColor: COLORS.secondary + '40',
