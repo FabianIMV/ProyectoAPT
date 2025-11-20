@@ -1119,53 +1119,16 @@ export default function DashboardScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
 
-          {loadingStats ? (
-            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={COLORS.secondary} />
-              <Text style={{ color: COLORS.textSecondary, marginTop: 8, fontSize: 11 }}>
-                Calculando...
-              </Text>
-            </View>
-          ) : realStats ? (
-            <View style={styles.statsCompactContainer}>
-              {/* Estado compacto */}
-              <View style={[styles.statsCompactStatus, { 
-                backgroundColor: realStats.planStatusColor + '15',
-                borderLeftColor: realStats.planStatusColor 
-              }]}>
-                <Ionicons 
-                  name={realStats.isAheadOfSchedule ? "trending-down" : realStats.planStatus === 'on_track' ? "checkmark-circle" : "warning"} 
-                  size={32} 
-                  color={realStats.planStatusColor} 
-                />
-                <View style={styles.statsCompactInfo}>
-                  <Text style={styles.statsCompactTitle}>
-                    {realStats.planStatus === 'ahead' ? '¡Vas adelante!' : 
-                     realStats.planStatus === 'on_track' ? '¡Vas perfecto!' : 
-                     realStats.planStatus === 'behind' ? 'Puedes mejorar' : '⚠️ Ajusta tu plan'}
-                  </Text>
-                  <Text style={styles.statsCompactSubtitle}>
-                    {realStats.weightLost}kg perdidos • {realStats.overallCompliance}% cumplimiento
-                  </Text>
-                </View>
-              </View>
-
-            </View>
-          ) : (
-            <View style={styles.statsEmptyState}>
-              <Ionicons name="stats-chart-outline" size={28} color={COLORS.secondary} style={{ opacity: 0.5 }} />
-              <View style={styles.statsEmptyContent}>
-                <Text style={styles.statsEmptyTitle}>
-                  {currentDayNumber === 1 ? 'Estadísticas desde el día 2' : 'Registra tu progreso'}
-                </Text>
-                <Text style={styles.statsEmptyText}>
-                  {currentDayNumber === 1 
-                    ? 'Mañana verás tus estadísticas 💪'
-                    : 'Completa tu registro de hoy'}
-                </Text>
-              </View>
-            </View>
-          )}
+          {/* Botón simple para ir a estadísticas */}
+          <TouchableOpacity 
+            style={styles.statsSimpleButton}
+            onPress={() => navigation.navigate('Stats')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="stats-chart" size={18} color={COLORS.secondary} />
+            <Text style={styles.statsSimpleButtonText}>Visualiza tus estadísticas</Text>
+            <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -3114,48 +3077,25 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '500',
   },
-  // Versión compacta para Dashboard
-  statsCompactContainer: {
-    gap: 12,
-  },
-  statsCompactStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    gap: 14,
-  },
-  statsCompactInfo: {
-    flex: 1,
-  },
-  statsCompactTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  statsCompactSubtitle: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  statsCompactButton: {
+  // Botón simple para estadísticas
+  statsSimpleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: COLORS.primary + '60',
     borderWidth: 1,
     borderColor: COLORS.secondary + '30',
-    gap: 6,
+    gap: 8,
   },
-  statsCompactButtonText: {
-    fontSize: 13,
+  statsSimpleButtonText: {
+    fontSize: 12,
     fontWeight: '600',
     color: COLORS.secondary,
+    flex: 1,
+    textAlign: 'center',
   },
   planStatusBanner: {
     flexDirection: 'row',
