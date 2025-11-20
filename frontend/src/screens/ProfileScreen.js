@@ -134,25 +134,32 @@ export default function ProfileScreen({ navigation, route }) {
               </View>
             )}
             
-            {/* Avatar y nombre */}
-            <View style={styles.avatarSection}>
-              {profileData.profile_picture_url ? (
-                <Image
-                  source={{ uri: profileData.profile_picture_url }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {profileData.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <Text style={styles.userName}>{profileData.name}</Text>
-              <Text style={styles.userSubtitle}>Atleta Profesional</Text>
+            {/* Avatar y nombre - Layout horizontal */}
+            <View style={styles.profileMainSection}>
+              {/* Foto de perfil a la izquierda */}
+              <View style={styles.avatarContainer}>
+                {profileData.profile_picture_url ? (
+                  <Image
+                    source={{ uri: profileData.profile_picture_url }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {profileData.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Información del usuario a la derecha */}
+              <View style={styles.userInfoContainer}>
+                <Text style={styles.userName}>{profileData.name}</Text>
+                <Text style={styles.userSubtitle}>Atleta Profesional</Text>
+              </View>
             </View>
 
-            {/* Stats cards */}
+            {/* Stats cards - 3 cards visuales */}
             <View style={styles.statsContainer}>
               <View style={styles.statCard}>
                 <Ionicons name="fitness" size={24} color={COLORS.secondary} />
@@ -246,18 +253,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 8,
   },
-  avatarSection: {
+  profileMainSection: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 25,
+  },
+  avatarContainer: {
+    marginRight: 20,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: COLORS.secondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -265,10 +275,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   avatarImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    marginBottom: 15,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     borderWidth: 3,
     borderColor: COLORS.secondary,
     shadowColor: '#000',
@@ -278,15 +287,19 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   avatarText: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: 'bold',
     color: '#fff',
   },
+  userInfoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   userName: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 5,
+    marginBottom: 4,
   },
   userSubtitle: {
     fontSize: 14,
@@ -296,7 +309,7 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    marginTop: 5,
   },
   statCard: {
     flex: 1,
@@ -305,6 +318,11 @@ const styles = StyleSheet.create({
     padding: 15,
     marginHorizontal: 5,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   statValue: {
     fontSize: 22,
