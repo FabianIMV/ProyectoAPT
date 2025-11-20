@@ -16,6 +16,7 @@ import {
 } from '../services/dashboardService';
 import { addWaterIntake as addWaterIntakeOld, getDailyWaterIntake } from '../services/waterService';
 import { addWaterIntake, getDayProgress, setDailyWeight, readjustTimeline } from '../services/progressService';
+import { calculateRealStats, getComplianceLevel } from '../services/statsService';
 import WaterIntakeModal from '../components/WaterIntakeModal';
 import WeightInputModal from '../components/WeightInputModal';
 import { calculateCurrentDayIndex, calculateCurrentDayNumber } from '../utils/dateUtils';
@@ -51,6 +52,8 @@ export default function DashboardScreen({ navigation, route }) {
   const [timelineAlerts, setTimelineAlerts] = useState([]); // Alertas automáticas del timeline
   const [dismissedAlerts, setDismissedAlerts] = useState([]); // IDs de alertas cerradas
   const [isAutoReadjusting, setIsAutoReadjusting] = useState(false); // Estado para reajuste automático
+  const [realStats, setRealStats] = useState(null); // Estadísticas reales calculadas
+  const [loadingStats, setLoadingStats] = useState(false); // Estado de carga de stats
 
   // Cargar alertas cerradas desde AsyncStorage al montar
   useEffect(() => {
@@ -434,6 +437,25 @@ export default function DashboardScreen({ navigation, route }) {
           // Filtrar y mostrar solo las 3 alertas más importantes
           const topAlerts = filterTopAlerts(alerts, 3);
           setTimelineAlerts(topAlerts);
+        }
+
+        // Cargar estadísticas reales (desde día 2 en adelante)
+        if (timeline && calculatedDayNumber >= 2) {
+          setLoadingStats(true);
+          console.log('🔄 Calculando estadísticas para día', calculatedDayNumber);
+          const stats = await calculateRealStats(
+            userId,
+            calculatedTimelineId,
+            calculatedDayNumber,
+            timeline,
+            activePlan
+          );
+          console.log('📊 Estadísticas reales calculadas:', stats);
+          setRealStats(stats);
+          setLoadingStats(false);
+        } else {
+          console.log('ℹ️ Estadísticas disponibles desde día 2 (actual: día', calculatedDayNumber, ')');
+          setRealStats(null);
         }
 
         console.log('✅ Dashboard data loaded:', {
@@ -1080,6 +1102,70 @@ export default function DashboardScreen({ navigation, route }) {
               )}
             </TouchableOpacity>
           </View>
+        </View>
+      )}
+
+      {/* === ESTADÍSTICAS DEL PLAN - Siempre visible === */}
+      {activeTimeline && currentDayNumber && (
+        <View style={styles.statsEmbeddedSection}>
+          <View style={styles.statsHeader}>
+            <Text style={styles.statsTitle}>📊 Progreso del Plan</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Stats')}
+              style={styles.statsExpandButton}
+            >
+              <Text style={styles.statsExpandText}>Ver Completo</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          {loadingStats ? (
+            <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={COLORS.secondary} />
+              <Text style={{ color: COLORS.textSecondary, marginTop: 8, fontSize: 11 }}>
+                Calculando...
+              </Text>
+            </View>
+          ) : realStats ? (
+            <View style={styles.statsCompactContainer}>
+              {/* Estado compacto */}
+              <View style={[styles.statsCompactStatus, { 
+                backgroundColor: realStats.planStatusColor + '15',
+                borderLeftColor: realStats.planStatusColor 
+              }]}>
+                <Ionicons 
+                  name={realStats.isAheadOfSchedule ? "trending-down" : realStats.planStatus === 'on_track' ? "checkmark-circle" : "warning"} 
+                  size={32} 
+                  color={realStats.planStatusColor} 
+                />
+                <View style={styles.statsCompactInfo}>
+                  <Text style={styles.statsCompactTitle}>
+                    {realStats.planStatus === 'ahead' ? '¡Vas adelante!' : 
+                     realStats.planStatus === 'on_track' ? '¡Vas perfecto!' : 
+                     realStats.planStatus === 'behind' ? 'Puedes mejorar' : '⚠️ Ajusta tu plan'}
+                  </Text>
+                  <Text style={styles.statsCompactSubtitle}>
+                    {realStats.weightLost}kg perdidos • {realStats.overallCompliance}% cumplimiento
+                  </Text>
+                </View>
+              </View>
+
+            </View>
+          ) : (
+            <View style={styles.statsEmptyState}>
+              <Ionicons name="stats-chart-outline" size={28} color={COLORS.secondary} style={{ opacity: 0.5 }} />
+              <View style={styles.statsEmptyContent}>
+                <Text style={styles.statsEmptyTitle}>
+                  {currentDayNumber === 1 ? 'Estadísticas desde el día 2' : 'Registra tu progreso'}
+                </Text>
+                <Text style={styles.statsEmptyText}>
+                  {currentDayNumber === 1 
+                    ? 'Mañana verás tus estadísticas 💪'
+                    : 'Completa tu registro de hoy'}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       )}
 
@@ -2945,6 +3031,166 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.secondary,
     fontWeight: '600',
+  },
+  // Estadísticas Embebidas
+  statsEmbeddedSection: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: COLORS.accent,
+    borderRadius: 16,
+    padding: 20,
+    borderLeftWidth: 5,
+    borderLeftColor: '#9C27B0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  statsExpandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statsExpandText: {
+    fontSize: 14,
+    color: COLORS.secondary,
+    fontWeight: '600',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statsCard: {
+    flex: 1,
+    backgroundColor: COLORS.primary + '80',
+    borderRadius: 12,
+    padding: 14,
+  },
+  statsCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 6,
+  },
+  statsCardLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  statsCardValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  statsProgressBar: {
+    height: 5,
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 6,
+    width: '100%', // Fix: evita que se salga de la pantalla
+  },
+  statsProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+    minWidth: 2,
+    maxWidth: '100%', // Fix: limita el ancho máximo
+  },
+  statsCardNote: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  // Versión compacta para Dashboard
+  statsCompactContainer: {
+    gap: 12,
+  },
+  statsCompactStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    gap: 14,
+  },
+  statsCompactInfo: {
+    flex: 1,
+  },
+  statsCompactTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  statsCompactSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  statsCompactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary + '60',
+    borderWidth: 1,
+    borderColor: COLORS.secondary + '30',
+    gap: 6,
+  },
+  statsCompactButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.secondary,
+  },
+  planStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    gap: 10,
+  },
+  planStatusText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    flex: 1,
+  },
+  statsEmptyState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  statsEmptyContent: {
+    flex: 1,
+  },
+  statsEmptyTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  statsEmptyText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 16,
   },
   // Botón flotante de IA
   // Alertas del Timeline
