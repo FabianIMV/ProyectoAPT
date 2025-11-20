@@ -15,6 +15,7 @@ import WeightCutResultsScreen from './src/screens/WeightCutResultsScreen';
 import WeightCutHistoryScreen from './src/screens/WeightCutHistoryScreen';
 import ActivateTimelineScreen from './src/screens/ActivateTimelineScreen';
 import WaterHistoryScreen from './src/screens/WaterHistoryScreen';
+import ManualFoodEntryScreen from './src/screens/ManualFoodEntryScreen';
 import { COLORS } from './src/styles/colors';
 import { AuthProvider } from './src/context/AuthContext';
 
@@ -102,6 +103,11 @@ export default function App() {
           name="WaterHistory"
           component={WaterHistoryScreen}
           options={{ title: 'Historial de Agua' }}
+        />
+        <Stack.Screen
+          name="ManualFoodEntry"
+          component={ManualFoodEntryScreen}
+          options={{ title: 'Registro Manual' }}
         />
       </Stack.Navigator>
       </NavigationContainer>

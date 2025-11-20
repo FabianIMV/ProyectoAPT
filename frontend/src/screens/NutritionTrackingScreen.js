@@ -257,7 +257,8 @@ export default function NutritionTrackingScreen({ navigation }) {
         .filter(meal => meal !== null);
     }
 
-    return mealsArray;
+    // Ordenar por timestamp de más reciente a más viejo (reverse)
+    return mealsArray.reverse();
   }, [dayProgress]);
 
   // Formatear hora de la comida usando utility function
@@ -477,18 +478,24 @@ export default function NutritionTrackingScreen({ navigation }) {
         ) : (
           meals.map((meal) => (
             <View key={meal.id} style={styles.mealCard}>
+              <View style={styles.mealTimeHeader}>
+                <Ionicons name="time-outline" size={16} color={COLORS.secondary} />
+                <Text style={styles.mealTimeHeaderText}>{formatMealTime(meal.timestamp)}</Text>
+              </View>
               <View style={styles.mealHeader}>
-                <View>
+                <View style={styles.mealInfoContainer}>
                   <Text style={styles.mealName}>{meal.name}</Text>
-                  <Text style={styles.mealTime}>{formatMealTime(meal.timestamp)}</Text>
                   {meal.weight && (
-                    <Text style={styles.mealTime}>Peso: {meal.weight}g</Text>
+                    <Text style={styles.mealTime}><Text style={styles.boldLabel}>Peso:</Text> {meal.weight}g</Text>
                   )}
                   {meal.confidence && (
-                    <Text style={styles.mealTime}>Confianza: {meal.confidence}%</Text>
+                    <Text style={styles.mealTime}><Text style={styles.boldLabel}>Confianza:</Text> {meal.confidence}%</Text>
                   )}
                 </View>
-                <Text style={styles.mealCalories}>{meal.calories} cal</Text>
+                <View style={styles.caloriesBadge}>
+                  <Text style={styles.mealCalories}>{meal.calories}</Text>
+                  <Text style={styles.caloriesLabel}>cal</Text>
+                </View>
               </View>
 
               <View style={styles.mealMacros}>
@@ -722,11 +729,29 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 12,
   },
+  mealTimeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: 12,
+    marginBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.secondary + '30',
+    gap: 6,
+  },
+  mealTimeHeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.secondary,
+  },
   mealHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 15,
+  },
+  mealInfoContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   mealName: {
     fontSize: 18,
@@ -738,10 +763,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
   },
-  mealCalories: {
-    fontSize: 22,
+  boldLabel: {
     fontWeight: 'bold',
-    color: COLORS.secondary,
+    color: COLORS.text,
+  },
+  caloriesBadge: {
+    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  mealCalories: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  caloriesLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginTop: 2,
   },
   mealMacros: {
     flexDirection: 'row',

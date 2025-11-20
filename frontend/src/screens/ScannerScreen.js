@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { readAsStringAsync } from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/colors';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -234,6 +235,15 @@ export default function ScannerScreen({ navigation }) {
             <Text style={styles.secondaryButtonText}>Seleccionar Imagen</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.manualButton}
+            onPress={() => navigation.navigate('ManualFoodEntry')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="create-outline" size={20} color={COLORS.secondary} />
+            <Text style={styles.manualButtonText}>Registro Manual</Text>
+          </TouchableOpacity>
+
         </View>
 
 
@@ -322,6 +332,23 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  manualButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  manualButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   loadingContainer: {
     alignItems: 'center',
