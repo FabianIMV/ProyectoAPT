@@ -85,6 +85,17 @@ export default function ScannerScreen({ navigation }) {
       );
 
       if (!response.ok) {
+        // Manejo específico para error 500 (modelo saturado)
+        if (response.status === 500) {
+          Alert.alert(
+            'Servicio Temporalmente Saturado',
+            'El modelo de IA está procesando muchas solicitudes en este momento. Por favor, intenta nuevamente en unos minutos.',
+            [{ text: 'Entendido' }]
+          );
+          setIsLoading(false);
+          setSelectedImage(null);
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -97,10 +108,20 @@ export default function ScannerScreen({ navigation }) {
       });
     } catch (error) {
       console.error('Error analyzing nutrition:', error);
-      Alert.alert(
-        'Error de análisis',
-        'No se pudo analizar la imagen. Intenta nuevamente.'
-      );
+      
+      // Verificar si el error contiene "500" en el mensaje
+      if (error.message && error.message.includes('500')) {
+        Alert.alert(
+          'Servicio Temporalmente Saturado',
+          'El modelo de IA está procesando muchas solicitudes en este momento. Por favor, intenta nuevamente en unos minutos.',
+          [{ text: 'Entendido' }]
+        );
+      } else {
+        Alert.alert(
+          'Error de análisis',
+          'No se pudo analizar la imagen. Intenta nuevamente.'
+        );
+      }
     } finally {
       setIsLoading(false);
       setSelectedImage(null);

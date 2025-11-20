@@ -125,33 +125,56 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           useNativeDriver: true
         }).start();
       } else {
-        // Error: mostrar fallback
+        // Error: verificar si es por modelo saturado
         setError(result.error || 'No se pudo obtener feedback');
-        Alert.alert(
-          'Feedback No Disponible',
-          'No se pudo conectar con el servicio de IA. ¿Quieres usar un análisis básico?',
-          [
-            {
-              text: 'Cancelar',
-              style: 'cancel'
-            },
-            {
-              text: 'Usar Análisis Básico',
-              onPress: () => {
-                const fallback = getLocalFallbackFeedback({
-                  actual_calories: 1800,
-                  target_calories: 2000
-                });
-                setFeedback(fallback);
+        
+        if (result.isModelSaturated) {
+          // Mensaje específico para modelo saturado
+          Alert.alert(
+            'Servicio Temporalmente Saturado',
+            'El modelo de IA está procesando muchas solicitudes en este momento. Por favor, intenta nuevamente en unos minutos.',
+            [{ text: 'Entendido' }]
+          );
+        } else {
+          // Error general: ofrecer análisis básico
+          Alert.alert(
+            'Feedback No Disponible',
+            'No se pudo conectar con el servicio de IA. ¿Quieres usar un análisis básico?',
+            [
+              {
+                text: 'Cancelar',
+                style: 'cancel'
+              },
+              {
+                text: 'Usar Análisis Básico',
+                onPress: () => {
+                  const fallback = getLocalFallbackFeedback({
+                    actual_calories: 1800,
+                    target_calories: 2000
+                  });
+                  setFeedback(fallback);
+                }
               }
-            }
-          ]
-        );
+            ]
+          );
+        }
       }
     } catch (err) {
       console.error('Error fetching feedback:', err);
       setError(err.message);
-      Alert.alert('Error', 'Ocurrió un error al obtener el feedback');
+      
+      // Verificar si el error contiene indicios de saturación
+      const isSaturatedError = err.message && (err.message.includes('500') || err.message.includes('saturado'));
+      
+      if (isSaturatedError) {
+        Alert.alert(
+          'Servicio Temporalmente Saturado',
+          'El modelo de IA está procesando muchas solicitudes en este momento. Por favor, intenta nuevamente en unos minutos.',
+          [{ text: 'Entendido' }]
+        );
+      } else {
+        Alert.alert('Error', 'Ocurrió un error al obtener el feedback');
+      }
     } finally {
       setLoading(false);
     }

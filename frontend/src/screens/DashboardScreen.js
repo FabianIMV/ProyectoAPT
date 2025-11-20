@@ -1338,12 +1338,24 @@ export default function DashboardScreen({ navigation, route }) {
                 </View>
                 
                 {alert.action && (
-                  <View style={styles.alertActionContainer}>
+                  <TouchableOpacity 
+                    style={styles.alertActionContainer}
+                    onPress={() => {
+                      // Navegar según la acción
+                      if (alert.action === 'Ajustar próxima comida' || alert.action === 'Aumentar ingesta') {
+                        navigation.navigate('NutritionTracking');
+                      } else if (alert.action === 'Registrar comidas') {
+                        navigation.navigate('Scanner');
+                      }
+                      // Para otras acciones como "Mantener plan", "Revisa tu plan del día", etc., no hacer nada
+                    }}
+                    activeOpacity={0.7}
+                  >
                     <Ionicons name="arrow-forward-circle" size={18} color={alert.color} />
                     <Text style={[styles.alertAction, { color: alert.color }]}>
                       {alert.action}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 )}
               </View>
             ))}

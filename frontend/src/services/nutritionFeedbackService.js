@@ -35,6 +35,16 @@ export const getDailyNutritionFeedback = async (userId, timelineId = null, dayNu
     });
 
     if (!response.ok) {
+      // Manejo específico para error 500 (modelo saturado)
+      if (response.status === 500) {
+        return {
+          success: false,
+          error: 'Servicio saturado. El modelo de IA está procesando muchas solicitudes. Por favor, intenta nuevamente en unos minutos.',
+          isModelSaturated: true,
+          data: null,
+        };
+      }
+      
       const errorData = await response.json();
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
@@ -55,9 +65,15 @@ export const getDailyNutritionFeedback = async (userId, timelineId = null, dayNu
   } catch (error) {
     console.error('❌ Error obteniendo feedback nutricional:', error);
 
+    // Detectar errores 500 en el mensaje de error
+    const is500Error = error.message && (error.message.includes('500') || error.message.includes('saturado'));
+    
     return {
       success: false,
-      error: error.message || 'Error al obtener feedback nutricional',
+      error: is500Error 
+        ? 'Servicio saturado. El modelo de IA está procesando muchas solicitudes. Por favor, intenta nuevamente en unos minutos.'
+        : error.message || 'Error al obtener feedback nutricional',
+      isModelSaturated: is500Error,
       data: null,
     };
   }

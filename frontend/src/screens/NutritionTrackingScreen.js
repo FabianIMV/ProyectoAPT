@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, Animated, Alert } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -118,10 +118,27 @@ export default function NutritionTrackingScreen({ navigation }) {
           console.log('✅ Recomendaciones cargadas:', result.data);
         }
       } else {
+        // Manejo específico para error 500
+        if (response.status === 500) {
+          Alert.alert(
+            'Servicio Temporalmente Saturado',
+            'El modelo de IA está procesando muchas solicitudes en este momento. Por favor, intenta nuevamente en unos minutos.',
+            [{ text: 'Entendido' }]
+          );
+        }
         console.error('❌ Error en respuesta:', response.status);
       }
     } catch (error) {
       console.error('❌ Error cargando recomendaciones:', error);
+      
+      // Verificar si es error 500
+      if (error.message && error.message.includes('500')) {
+        Alert.alert(
+          'Servicio Temporalmente Saturado',
+          'El modelo de IA está procesando muchas solicitudes en este momento. Por favor, intenta nuevamente en unos minutos.',
+          [{ text: 'Entendido' }]
+        );
+      }
     } finally {
       setLoadingRecommendations(false);
     }
@@ -260,13 +277,6 @@ export default function NutritionTrackingScreen({ navigation }) {
           />
         }
       >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Seguimiento Nutricional</Text>
-      </View>
-
       {/* Daily Summary Card */}
       {isLoading ? (
         <View style={styles.summaryCard}>
