@@ -50,7 +50,7 @@ export default function DashboardScreen({ navigation, route }) {
   const [aiRecommendations, setAiRecommendations] = useState([]); // Array de todas las recomendaciones
   const [timelineAlerts, setTimelineAlerts] = useState([]); // Alertas automáticas del timeline
   const [dismissedAlerts, setDismissedAlerts] = useState([]); // IDs de alertas cerradas
-  const [isReadjustingTimeline, setIsReadjustingTimeline] = useState(false);
+  const [isAutoReadjusting, setIsAutoReadjusting] = useState(false); // Estado para reajuste automático
 
   // Cargar alertas cerradas desde AsyncStorage al montar
   useEffect(() => {
@@ -658,6 +658,9 @@ export default function DashboardScreen({ navigation, route }) {
           : `Peso inicial de ${weightKg.toFixed(1)}kg registrado`;
         Alert.alert('Registrado', message);
         setWeightModalVisible(false);
+
+        // AUTOMATIZACIÓN: Detectar si el peso está por encima de la meta y reajustar automáticamente
+        await checkAndAutoReadjust(weightKg, targetDay);
       } else {
         Alert.alert('Error', result.error || 'No se pudo registrar el peso');
       }
@@ -669,66 +672,84 @@ export default function DashboardScreen({ navigation, route }) {
     }
   };
 
-  const handleReadjustTimeline = async () => {
-    if (!userId || !timelineId || !currentDayNumber || !activeTimeline) {
-      Alert.alert('Error', 'No se encontró información del timeline activo');
-      return;
+  /**
+   * Verifica automáticamente si el peso ingresado requiere un reajuste del timeline
+   * y lo ejecuta sin intervención del usuario si es necesario
+   */
+  const checkAndAutoReadjust = async (weightKg, targetDay) => {
+    try {
+      // No reajustar si no hay timeline activo
+      if (!activeTimeline) {
+        console.log('⏭️ No se puede reajustar: sin timeline activo');
+        return;
+      }
+
+      // Verificar que haya días futuros para reajustar
+      // Solo se puede reajustar si el día guardado (targetDay) no es el último
+      if (targetDay >= activeTimeline.total_days) {
+        console.log(`⏭️ No se puede reajustar: día ${targetDay} es el último día del plan (total: ${activeTimeline.total_days})`);
+        return;
+      }
+
+      // Obtener la meta de peso para el día registrado
+      const dayIndex = targetDay - 1; // Los arrays son 0-indexed
+      if (!activeTimeline.timeline_data?.days?.[dayIndex]) {
+        console.log('⚠️ No se encontró información del día para comparar');
+        return;
+      }
+
+      const targetWeightForDay = parseFloat(activeTimeline.timeline_data.days[dayIndex].targets.weightKg);
+
+      // Calcular diferencia: si es positiva, el peso está por encima de la meta
+      const weightDifference = weightKg - targetWeightForDay;
+
+      console.log('🔍 Verificando necesidad de reajuste:', {
+        weightKg,
+        targetWeightForDay,
+        weightDifference,
+        shouldReadjust: weightDifference > 0.3
+      });
+
+      // Si el peso está más de 300g por encima de la meta, reajustar automáticamente
+      if (weightDifference > 0.3) {
+        console.log('🔄 Peso por encima de meta detectado. Iniciando reajuste automático...');
+
+        // Mostrar alerta informativa (no bloquea, solo informa)
+        Alert.alert(
+          '🔄 Reajuste Automático',
+          `Tu peso de ${weightKg.toFixed(1)}kg está ${weightDifference.toFixed(1)}kg por encima de tu meta de ${targetWeightForDay.toFixed(1)}kg.\n\nAjustando tu plan automáticamente para mantener tu objetivo final...`,
+          [{ text: 'Entendido' }]
+        );
+
+        // Ejecutar reajuste automáticamente
+        setIsAutoReadjusting(true);
+        await executeReadjustTimeline(targetDay, weightKg, true); // true = es automático
+        setIsAutoReadjusting(false);
+      } else if (weightDifference > 0) {
+        console.log('ℹ️ Peso ligeramente por encima, pero dentro del margen aceptable');
+      } else {
+        console.log('✅ Peso dentro o por debajo de la meta. No se requiere reajuste.');
+      }
+    } catch (error) {
+      console.error('❌ Error en verificación automática de reajuste:', error);
+      // No mostrar error al usuario, ya que es un proceso automático en segundo plano
     }
-
-    // Validación: No se puede reajustar si estamos en el último día
-    if (currentDayNumber >= activeTimeline.total_days) {
-      Alert.alert(
-        'No se puede reajustar',
-        'No puedes reajustar el timeline desde el último día. El plan está por finalizar.'
-      );
-      return;
-    }
-
-    // Calcular qué días se verán afectados
-    const lastCompletedDay = currentDayNumber - 1; // El día anterior al actual
-    const firstDayAffected = currentDayNumber;
-    const lastDayAffected = activeTimeline.total_days;
-    const affectedDaysCount = lastDayAffected - firstDayAffected + 1;
-
-    // Obtener peso actual para mostrarlo en el diálogo
-    let currentWeight;
-    if (currentDayNumber === 1) {
-      currentWeight = dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg;
-    } else {
-      currentWeight = yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg;
-    }
-
-    const weightText = currentWeight
-      ? `\n\n📊 Peso actual: ${currentWeight.toFixed(1)}kg`
-      : '\n\n⚠️ No tienes peso registrado. Se usará el último peso disponible.';
-
-    // Mostrar confirmación detallada
-    Alert.alert(
-      '🔄 Reajustar Timeline',
-      `Esta acción regenerará tu plan desde el día ${firstDayAffected} hasta el día ${lastDayAffected} (${affectedDaysCount} días) basándose en tu progreso real hasta ahora.${weightText}\n\n⏱️ Tiempo estimado: ${Math.max(60, affectedDaysCount * 10)}s\n\n¿Deseas continuar?`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel'
-        },
-        {
-          text: 'Reajustar Plan',
-          style: 'default',
-          onPress: () => executeReadjustTimeline(lastCompletedDay, currentWeight)
-        }
-      ]
-    );
   };
 
-  const executeReadjustTimeline = async (lastCompletedDay, currentWeight) => {
-    setIsReadjustingTimeline(true);
+  const executeReadjustTimeline = async (lastCompletedDay, currentWeight, isAutomatic = false) => {
+    // No necesitamos setear el estado aquí ya que se maneja en checkAndAutoReadjust
 
     try {
+      const reason = isAutomatic
+        ? 'Reajuste automático: peso por encima de meta detectado'
+        : 'Usuario solicitó reajuste desde DashboardScreen';
+
       console.log('🔄 Iniciando reajuste de timeline...', {
         userId,
         timelineId,
         lastCompletedDay,
-        currentWeight
+        currentWeight,
+        isAutomatic
       });
 
       const result = await readjustTimeline(
@@ -736,26 +757,31 @@ export default function DashboardScreen({ navigation, route }) {
         lastCompletedDay,
         currentWeight,
         timelineId,
-        'Usuario solicitó reajuste desde DashboardScreen'
+        reason
       );
 
       if (result.success) {
         const data = result.data;
 
         // Construir mensaje de éxito con detalles
-        let successMessage = `✅ Timeline reajustado exitosamente\n\n`;
+        let successMessage = isAutomatic
+          ? `Tu plan ha sido reajustado automáticamente para mantener tu objetivo final.\n\n`
+          : `✅ Timeline reajustado exitosamente\n\n`;
+
         successMessage += `📅 Días reajustados: ${data.firstDayReadjusted} al ${data.lastDayReadjusted} (${data.affectedDays} días)\n`;
         successMessage += `⚖️ Peso actual: ${data.currentWeight.toFixed(1)}kg\n`;
         successMessage += `🎯 Peso objetivo: ${data.targetWeight.toFixed(1)}kg\n`;
         successMessage += `📉 Por perder: ${data.remainingWeightToCut.toFixed(1)}kg`;
 
-        // Mostrar razonamiento de IA si está disponible
-        if (data.adjustmentReasoning) {
+        // Mostrar razonamiento de IA si está disponible (solo en modo manual)
+        if (!isAutomatic && data.adjustmentReasoning) {
           successMessage += `\n\n🤖 Análisis IA:\n${data.adjustmentReasoning.substring(0, 200)}${data.adjustmentReasoning.length > 200 ? '...' : ''}`;
         }
 
+        const alertTitle = isAutomatic ? '✅ Plan Reajustado' : '✅ Reajuste Exitoso';
+
         Alert.alert(
-          '✅ Reajuste Exitoso',
+          alertTitle,
           successMessage,
           [
             {
@@ -773,21 +799,22 @@ export default function DashboardScreen({ navigation, route }) {
     } catch (error) {
       console.error('❌ Error reajustando timeline:', error);
 
-      let errorMessage = 'No se pudo reajustar el timeline.';
+      // Solo mostrar errores en modo manual, en automático logear silenciosamente
+      if (!isAutomatic) {
+        let errorMessage = 'No se pudo reajustar el timeline.';
 
-      if (error.message.includes('Timeline no encontrado')) {
-        errorMessage = 'No se encontró el timeline activo. Por favor recarga la app.';
-      } else if (error.message.includes('Parámetros inválidos')) {
-        errorMessage = 'Los parámetros del reajuste son inválidos. Verifica tu progreso.';
-      } else if (error.message.includes('cannot be the last day')) {
-        errorMessage = 'No puedes reajustar desde el último día del plan.';
-      } else {
-        errorMessage += `\n\n${error.message}`;
+        if (error.message.includes('Timeline no encontrado')) {
+          errorMessage = 'No se encontró el timeline activo. Por favor recarga la app.';
+        } else if (error.message.includes('Parámetros inválidos')) {
+          errorMessage = 'Los parámetros del reajuste son inválidos. Verifica tu progreso.';
+        } else if (error.message.includes('cannot be the last day')) {
+          errorMessage = 'No puedes reajustar desde el último día del plan.';
+        } else {
+          errorMessage += `\n\n${error.message}`;
+        }
+
+        Alert.alert('Error al Reajustar', errorMessage);
       }
-
-      Alert.alert('Error al Reajustar', errorMessage);
-    } finally {
-      setIsReadjustingTimeline(false);
     }
   };
 
@@ -1556,36 +1583,7 @@ export default function DashboardScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* Botón de Reajustar Timeline - Solo visible si hay timeline activo y no es el último día */}
-      <View style={styles.navigationSection}>
-        {activeTimeline && currentDayNumber && currentDayNumber < activeTimeline.total_days && (
-          <TouchableOpacity
-            style={[styles.navCard, isReadjustingTimeline && styles.navCardDisabled]}
-            onPress={handleReadjustTimeline}
-            activeOpacity={0.7}
-            disabled={isReadjustingTimeline}
-          >
-            <View style={styles.navCardContent}>
-              <View style={[styles.navIcon, { backgroundColor: '#FF9800' }]}>
-                {isReadjustingTimeline ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <Ionicons name="refresh-circle" size={28} color="white" />
-                )}
-              </View>
-              <View style={styles.navTextContainer}>
-                <Text style={styles.navTitle}>Reajustar Timeline</Text>
-                <Text style={styles.navDescription}>
-                  {isReadjustingTimeline
-                    ? 'Reajustando plan con IA...'
-                    : 'Adapta tu plan al progreso real'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={24} color={COLORS.secondary} />
-            </View>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Botón de Reajustar Timeline ELIMINADO - Ahora el reajuste es automático al ingresar peso por encima de meta */}
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
