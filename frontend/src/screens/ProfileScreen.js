@@ -207,7 +207,7 @@ export default function ProfileScreen({ navigation, route }) {
               <Ionicons name="calendar-outline" size={24} color="#fff" />
             </View>
             <View style={styles.optionContent}>
-              <Text style={styles.optionTitle}>Historial de Cortes</Text>
+              <Text style={styles.optionTitle}>Historial de Cortes de Peso</Text>
               <Text style={styles.optionSubtitle}>Ver tus cortes anteriores</Text>
             </View>
             <Ionicons name="chevron-forward" size={24} color={COLORS.textSecondary} />
