@@ -1110,13 +1110,6 @@ export default function DashboardScreen({ navigation, route }) {
         <View style={styles.statsEmbeddedSection}>
           <View style={styles.statsHeader}>
             <Text style={styles.statsTitle}>📊 Progreso del Plan</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Stats')}
-              style={styles.statsExpandButton}
-            >
-              <Text style={styles.statsExpandText}>Ver Completo</Text>
-              <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
-            </TouchableOpacity>
           </View>
 
           {/* Botón simple para ir a estadísticas */}
