@@ -579,6 +579,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1, // Fix: tomar espacio disponible
+    maxWidth: '100%', // Fix iOS: prevenir overflow
   },
   detailProgressBar: {
     flex: 1,
@@ -586,19 +588,19 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderRadius: 4,
     overflow: 'hidden',
-    maxWidth: '100%', // Fix iOS
+    minWidth: 0, // Fix: permite que flex funcione correctamente
   },
   detailProgressFill: {
     height: '100%',
     backgroundColor: COLORS.secondary,
     borderRadius: 4,
-    maxWidth: '100%', // Fix iOS
   },
   detailProgressText: {
     fontSize: 14,
     color: COLORS.secondary,
     fontWeight: 'bold',
-    minWidth: 40,
+    width: 45, // Fix: ancho fijo para el porcentaje
     textAlign: 'right',
+    flexShrink: 0, // Fix: no permitir que se encoja
   },
 });
