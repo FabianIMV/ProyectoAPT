@@ -73,12 +73,6 @@ export default function StatsScreen({ navigation }) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Estadísticas</Text>
-        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.secondary} />
           <Text style={styles.loadingText}>Cargando estadísticas...</Text>
@@ -90,12 +84,6 @@ export default function StatsScreen({ navigation }) {
   if (!realStats) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Estadísticas</Text>
-        </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="stats-chart-outline" size={80} color={COLORS.secondary} style={{ opacity: 0.3 }} />
           <Text style={styles.emptyTitle}>Sin Estadísticas</Text>
@@ -104,9 +92,9 @@ export default function StatsScreen({ navigation }) {
           </Text>
           <TouchableOpacity
             style={styles.emptyButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate('Dashboard')}
           >
-            <Text style={styles.emptyButtonText}>Volver al Dashboard</Text>
+            <Text style={styles.emptyButtonText}>Ir al Dashboard</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -116,13 +104,7 @@ export default function StatsScreen({ navigation }) {
   const complianceLevel = getComplianceLevel(realStats.overallCompliance);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Estadísticas</Text>
-      </View>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 20 }}>
 
       {/* Plan Status Banner */}
       <View style={[styles.statusBanner, { backgroundColor: realStats.planStatusColor + '20', borderColor: realStats.planStatusColor }]}>
@@ -320,21 +302,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.primary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
   },
   periodSelector: {
     flexDirection: 'row',
