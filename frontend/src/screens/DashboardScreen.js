@@ -2970,6 +2970,13 @@ const styles = StyleSheet.create({
     padding: 16,
     minHeight: 170,
     maxWidth: '48%',
+    shadowColor: COLORS.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 255, 200, 0.2)',
   },
   heroMetricIcon: {
     width: 48,
