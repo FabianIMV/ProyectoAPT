@@ -47,6 +47,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   });
 
   const [errors, setErrors] = useState({});
+  const [showErrors, setShowErrors] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormValid, setIsFormValid] = useState(false);
   const [showExperienceModal, setShowExperienceModal] = useState(false);
@@ -462,6 +463,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
   };
 
   const handleAnalyze = async () => {
+    setShowErrors(true);
     if (!validateForm()) {
       Alert.alert('Error', 'Por favor corrige los errores en el formulario');
       return;
@@ -622,21 +624,21 @@ export default function WeightCutCalculatorScreen({ navigation }) {
             <Text style={styles.label}>Peso Objetivo (kg) *</Text>
             <TextInput
               ref={targetWeightRef}
-              style={[styles.input, errors.targetWeightKg && styles.inputError]}
+              style={[styles.input, showErrors && errors.targetWeightKg && styles.inputError]}
               placeholder="Ej: 66"
               placeholderTextColor={COLORS.textSecondary}
               value={formData.targetWeightKg}
               onChangeText={(value) => handleInputChange('targetWeightKg', value)}
               keyboardType="numeric"
             />
-            {errors.targetWeightKg && <Text style={styles.errorText}>{errors.targetWeightKg}</Text>}
+            {showErrors && errors.targetWeightKg && <Text style={styles.errorText}>{errors.targetWeightKg}</Text>}
           </View>
 
           {/* FECHA DE INICIO */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Fecha de Inicio del Plan *</Text>
             <TouchableOpacity
-              style={[styles.datePickerButton, errors.startDate && styles.inputError]}
+              style={[styles.datePickerButton, showErrors && errors.startDate && styles.inputError]}
               onPress={() => {
                 setShowStartDatePicker(true);
               }}
@@ -649,7 +651,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               </Text>
               <Ionicons name="calendar" size={20} color={COLORS.secondary} />
             </TouchableOpacity>
-            {errors.startDate && <Text style={styles.errorText}>{errors.startDate}</Text>}
+            {showErrors && errors.startDate && <Text style={styles.errorText}>{errors.startDate}</Text>}
           </View>
 
           {showStartDatePicker && (
@@ -699,7 +701,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Fecha del Pesaje Oficial *</Text>
             <TouchableOpacity
-              style={[styles.datePickerButton, errors.weighInDate && styles.inputError]}
+              style={[styles.datePickerButton, showErrors && errors.weighInDate && styles.inputError]}
               onPress={() => {
                 setShowWeighInDatePicker(true);
               }}
@@ -713,7 +715,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               </Text>
               <Ionicons name="trophy" size={20} color={COLORS.secondary} />
             </TouchableOpacity>
-            {errors.weighInDate && <Text style={styles.errorText}>{errors.weighInDate}</Text>}
+            {showErrors && errors.weighInDate && <Text style={styles.errorText}>{errors.weighInDate}</Text>}
             {!formData.startDate && (
               <Text style={styles.helperText}>
                 Selecciona primero la fecha de inicio
@@ -770,7 +772,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               <Text style={styles.label}>Hora del Pesaje Oficial *</Text>
               <TextInput
                 ref={weighInTimeRef}
-                style={[styles.input, errors.weighInTime && styles.inputError]}
+                style={[styles.input, showErrors && errors.weighInTime && styles.inputError]}
                 placeholder="Ej: 08:00, 14:30"
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.weighInTime}
@@ -778,7 +780,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 keyboardType="number-pad"
                 maxLength={5}
               />
-              {errors.weighInTime && <Text style={styles.errorText}>{errors.weighInTime}</Text>}
+              {showErrors && errors.weighInTime && <Text style={styles.errorText}>{errors.weighInTime}</Text>}
               <Text style={styles.helperText}>
                 Solo números (ej: 0800, 1430). Los dos puntos se agregarán automáticamente.
               </Text>
@@ -932,28 +934,28 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               <Text style={styles.label}>Sesiones por Semana (1-7) *</Text>
               <TextInput
                 ref={sessionsPerWeekRef}
-                style={[styles.input, errors.trainingSessionsPerWeek && styles.inputError]}
+                style={[styles.input, showErrors && errors.trainingSessionsPerWeek && styles.inputError]}
                 placeholder="Ej: 5"
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.trainingSessionsPerWeek}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerWeek', value)}
                 keyboardType="numeric"
               />
-              {errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
+              {showErrors && errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Sesiones por Día (1-3) *</Text>
               <TextInput
                 ref={sessionsPerDayRef}
-                style={[styles.input, errors.trainingSessionsPerDay && styles.inputError]}
+                style={[styles.input, showErrors && errors.trainingSessionsPerDay && styles.inputError]}
                 placeholder="Ej: 1"
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.trainingSessionsPerDay}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerDay', value)}
                 keyboardType="numeric"
               />
-              {errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
+              {showErrors && errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
             </View>
           </View>
         )}
@@ -1015,8 +1017,13 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 25,
     backgroundColor: COLORS.accent,
-    borderRadius: 15,
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
     padding: 20,
+    paddingTop: 20,
+    borderWidth: 1,
+    borderColor: COLORS.secondary + '20',
+    borderTopWidth: 0,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1261,14 +1268,16 @@ const styles = StyleSheet.create({
   // === COLLAPSIBLE SECTION HEADER STYLES ===
   sectionHeader: {
     backgroundColor: COLORS.accent,
-    borderRadius: 15,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.secondary + '20',
+    borderBottomWidth: 0,
   },
   sectionHeaderTitle: {
     fontSize: 16,
