@@ -161,7 +161,7 @@ export default function NutritionResultsScreen({ route, navigation }) {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <Text style={styles.gloveSpinner}>🥊</Text>
           ) : (
             <Text style={styles.saveButtonText}>Guardar en Registro Diario de Comidas</Text>
           )}
@@ -340,6 +340,14 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
     textAlign: 'center',
   },
 });

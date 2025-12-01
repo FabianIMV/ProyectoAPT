@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -72,12 +73,11 @@ export default function StatsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.secondary} />
-          <Text style={styles.loadingText}>Cargando estadísticas...</Text>
-        </View>
-      </View>
+      <LoadingSpinner 
+        message="Cargando estadísticas..."
+        size="large"
+        showTitle={false}
+      />
     );
   }
 
@@ -602,5 +602,13 @@ const styles = StyleSheet.create({
     width: 45, // Fix: ancho fijo para el porcentaje
     textAlign: 'right',
     flexShrink: 0, // Fix: no permitir que se encoja
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

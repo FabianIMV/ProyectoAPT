@@ -221,7 +221,7 @@ export default function ManualFoodEntryScreen({ navigation }) {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color={COLORS.primary} />
+            <Text style={styles.gloveSpinner}>🥊</Text>
           ) : (
             <>
               <Ionicons name="analytics" size={24} color={COLORS.primary} />
@@ -392,5 +392,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 30,
     lineHeight: 18,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

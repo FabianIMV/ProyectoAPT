@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Alert, SafeAreaView, Platform } from 'react-native';
+import LoadingSpinner from '../components/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -930,7 +931,7 @@ export default function DashboardScreen({ navigation, route }) {
             disabled={isGeneratingTimeline}
           >
             {isGeneratingTimeline ? (
-              <ActivityIndicator color={COLORS.primary} />
+              <Text style={styles.gloveSpinner}>🥊</Text>
             ) : (
               <Text style={styles.timelineNeededButtonText}>Generar Timeline</Text>
             )}
@@ -982,7 +983,7 @@ export default function DashboardScreen({ navigation, route }) {
           <View style={styles.header}>
             {refreshing && (
               <View style={styles.loadingHeader}>
-                <ActivityIndicator size="small" color={COLORS.secondary} />
+                <Text style={styles.gloveSpinner}>🥊</Text>
                 <Text style={styles.loadingText}>Actualizando datos...</Text>
               </View>
             )}
@@ -1705,7 +1706,7 @@ export default function DashboardScreen({ navigation, route }) {
       {isAutoReadjusting && (
         <View style={styles.readjustOverlay}>
           <View style={styles.readjustModal}>
-            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.gloveSpinnerLarge}>🥊</Text>
             <Text style={styles.readjustTitle}>Reajustando Plan...</Text>
             <Text style={styles.readjustText}>
               Recalculando tu timeline con IA para mantener tu objetivo final.
@@ -3314,5 +3315,13 @@ const styles = StyleSheet.create({
   aiFloatingButtonDisabled: {
     backgroundColor: COLORS.textSecondary,
     opacity: 0.5,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

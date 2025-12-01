@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, TouchableWithoutFeedback, Keyboard, Platform, Image, ScrollView, KeyboardAvoidingView, BackHandler } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, TouchableWithoutFeedback, Keyboard, Platform, Image, ScrollView, KeyboardAvoidingView, BackHandler } from 'react-native';
+import LoadingSpinner from '../components/LoadingSpinner';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
@@ -333,7 +334,7 @@ export default function ProfileScreen({ navigation, route }) {
             disabled={uploadingImage}
           >
             {uploadingImage ? (
-              <ActivityIndicator color={COLORS.primary} size="small" />
+              <Text style={styles.gloveSpinner}>🥊</Text>
             ) : (
               <Text style={styles.imageButtonText}>
                 {profilePictureUrl ? 'Cambiar foto' : 'Subir foto'}
@@ -412,9 +413,9 @@ export default function ProfileScreen({ navigation, route }) {
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color={COLORS.primary} />
+          <Text style={styles.gloveSpinner}>🥊</Text>
         ) : (
-          <Text style={styles.saveButtonText}>Guardar Perfil</Text>
+          <Text style={styles.saveButtonText}>Guardar Cambios</Text>
         )}
       </TouchableOpacity>
           </View>
@@ -558,5 +559,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

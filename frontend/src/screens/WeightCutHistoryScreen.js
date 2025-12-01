@@ -83,7 +83,7 @@ export default function WeightCutHistoryScreen({ navigation }) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.secondary} />
+        <Text style={styles.gloveSpinnerLarge}>🥊</Text>
         <Text style={styles.loadingText}>Cargando historial...</Text>
       </View>
     );
@@ -301,5 +301,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.secondary,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

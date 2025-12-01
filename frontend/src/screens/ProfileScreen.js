@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Image, Dimensions, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Image, Dimensions, SafeAreaView } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { PROFILE_API } from '../config/api';
 import { Ionicons } from '@expo/vector-icons';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const { width } = Dimensions.get('window');
 
@@ -104,10 +105,11 @@ export default function ProfileScreen({ navigation, route }) {
   // Mostrar loader mientras carga por primera vez
   if (isLoading && !profileData.name) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.secondary} />
-        <Text style={styles.loadingText}>Cargando perfil...</Text>
-      </View>
+      <LoadingSpinner 
+        message="Cargando perfil..."
+        size="large"
+        showTitle={false}
+      />
     );
   }
 
@@ -130,7 +132,7 @@ export default function ProfileScreen({ navigation, route }) {
         <View style={styles.profileCard}>
           {refreshing && (
             <View style={styles.loadingHeader}>
-              <ActivityIndicator size="small" color={COLORS.secondary} />
+              <Text style={styles.gloveSpinner}>🥊</Text>
               <Text style={styles.loadingHeaderText}>Actualizando...</Text>
             </View>
           )}
@@ -457,5 +459,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

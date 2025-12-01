@@ -185,7 +185,7 @@ export default function WaterHistoryScreen({ navigation }) {
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={COLORS.secondary} />
+        <Text style={styles.gloveSpinnerLarge}>🥊</Text>
         <Text style={styles.loadingText}>Cargando historial...</Text>
       </View>
     );
@@ -564,5 +564,13 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 20,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

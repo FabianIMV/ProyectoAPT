@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, ActivityIndicator, RefreshControl, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Animated, Alert } from 'react-native';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -283,7 +284,7 @@ export default function NutritionTrackingScreen({ navigation }) {
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Resumen Diario</Text>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.gloveSpinnerLarge}>🥊</Text>
             <Text style={styles.loadingNote}>Cargando datos...</Text>
           </View>
         </View>
@@ -317,7 +318,7 @@ export default function NutritionTrackingScreen({ navigation }) {
         <View style={styles.macrosCard}>
           <Text style={styles.sectionTitle}>Macronutrientes del Día</Text>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.gloveSpinnerLarge}>🥊</Text>
           </View>
         </View>
       ) : currentDayData ? (
@@ -465,7 +466,7 @@ export default function NutritionTrackingScreen({ navigation }) {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.gloveSpinnerLarge}>🥊</Text>
           </View>
         ) : meals.length === 0 ? (
           <View style={styles.emptyMealsCard}>
@@ -1033,5 +1034,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

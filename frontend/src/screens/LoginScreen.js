@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../styles/colors';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { authService } from '../services/auth';
 import { useAuth } from '../context/AuthContext';
 
@@ -120,9 +121,9 @@ export default function LoginScreen({ navigation }) {
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color={COLORS.primary} />
+          <Text style={styles.gloveSpinner}>🥊</Text>
         ) : (
-          <Text style={styles.loginButtonText}>Entrar</Text>
+          <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
         )}
       </TouchableOpacity>
 
@@ -233,5 +234,13 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

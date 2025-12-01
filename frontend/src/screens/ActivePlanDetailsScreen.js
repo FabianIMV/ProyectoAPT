@@ -464,7 +464,7 @@ export default function ActivePlanDetailsScreen({ route, navigation }) {
             disabled={isDeactivating}
           >
             {isDeactivating ? (
-              <ActivityIndicator color="white" />
+              <Text style={styles.gloveSpinner}>🥊</Text>
             ) : (
               <Text style={styles.deactivateButtonText}>Desactivar Plan</Text>
             )}
@@ -916,5 +916,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text,
     lineHeight: 24,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

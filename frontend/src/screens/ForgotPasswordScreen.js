@@ -94,7 +94,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={COLORS.primary} />
+              <Text style={styles.gloveSpinner}>🥊</Text>
             ) : (
               <Text style={styles.buttonText}>Enviar Codigo</Text>
             )}
@@ -139,7 +139,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color={COLORS.primary} />
+              <Text style={styles.gloveSpinner}>🥊</Text>
             ) : (
               <Text style={styles.buttonText}>Restablecer Contrasena</Text>
             )}
@@ -225,5 +225,13 @@ const styles = StyleSheet.create({
   backLinkText: {
     color: COLORS.textSecondary,
     fontSize: 14,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

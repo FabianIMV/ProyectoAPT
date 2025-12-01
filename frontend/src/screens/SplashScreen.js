@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { preloadUserData } from '../services/preloadService';
@@ -96,7 +97,7 @@ export default function SplashScreen({ navigation }) {
         <Text style={styles.appName}>NutriCombat IA</Text>
       </View>
 
-      <ActivityIndicator size="large" color={COLORS.secondary} style={styles.loader} />
+      <Text style={styles.gloveSpinnerLarge}>🥊</Text>
 
       <Text style={styles.loadingText}>
         {isLoading ? 'Iniciando...' : 'Cargando datos...'}
@@ -145,5 +146,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
     opacity: 0.6,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

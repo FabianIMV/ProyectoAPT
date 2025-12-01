@@ -133,7 +133,7 @@ export default function WeightInputModal({ visible, onClose, onSubmit, loading, 
                 disabled={!isValid || loading}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="white" />
+                  <Text style={styles.gloveSpinner}>🥊</Text>
                 ) : (
                   <>
                     <Ionicons name="checkmark-circle" size={24} color="white" />
@@ -266,5 +266,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

@@ -649,7 +649,7 @@ export default function WeightCutResultsScreen({ route, navigation }) {
           >
             {isSaving ? (
               <View style={styles.savingContainer}>
-                <ActivityIndicator color={COLORS.secondary} />
+                <Text style={styles.gloveSpinner}>🥊</Text>
                 <Text style={styles.savingText}>{timelineProgress}</Text>
               </View>
             ) : (
@@ -1067,5 +1067,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text,
     lineHeight: 24,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

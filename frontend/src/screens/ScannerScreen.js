@@ -211,7 +211,7 @@ export default function ScannerScreen({ navigation }) {
       <View style={styles.content}>
         {refreshing && (
           <View style={styles.loadingHeader}>
-            <ActivityIndicator size="small" color={COLORS.secondary} />
+            <Text style={styles.gloveSpinner}>🥊</Text>
             <Text style={styles.loadingText}>Limpiando interfaz...</Text>
           </View>
         )}
@@ -376,5 +376,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     marginBottom: 15,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

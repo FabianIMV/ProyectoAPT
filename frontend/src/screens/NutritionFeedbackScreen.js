@@ -248,7 +248,7 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <Text style={styles.gloveSpinner}>🥊</Text>
           ) : (
             <>
               <View style={styles.buttonIconContainer}>
@@ -330,7 +330,7 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           style={{ marginRight: 15 }}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={COLORS.secondary} />
+            <Text style={styles.gloveSpinner}>🥊</Text>
           ) : (
             <Ionicons name="refresh" size={24} color={COLORS.secondary} />
           )}
@@ -363,7 +363,7 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
                 <Ionicons name="sparkles" size={32} color={COLORS.secondary} />
               </View>
             </View>
-            <ActivityIndicator size="large" color={COLORS.secondary} style={{ marginTop: 20 }} />
+            <Text style={styles.gloveSpinnerLarge}>🥊</Text>
             <Text style={styles.loadingText}>Analizando tu progreso...</Text>
             <Text style={styles.loadingSubtext}>
               La IA está procesando tus datos de nutrición e hidratación para generar recomendaciones personalizadas
@@ -411,7 +411,7 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
                 disabled={accepting || loading}
               >
                 {accepting ? (
-                  <ActivityIndicator color="#fff" />
+                  <Text style={styles.gloveSpinner}>🥊</Text>
                 ) : (
                   <>
                     <Ionicons name="checkmark-circle" size={24} color="#fff" />
@@ -749,5 +749,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     lineHeight: 18,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });

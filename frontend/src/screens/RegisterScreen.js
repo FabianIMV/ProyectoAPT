@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { COLORS } from '../styles/colors';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { authService } from '../services/auth';
 
 export default function RegisterScreen({ navigation }) {
@@ -78,7 +79,7 @@ export default function RegisterScreen({ navigation }) {
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color={COLORS.primary} />
+          <Text style={styles.gloveSpinner}>🥊</Text>
         ) : (
           <Text style={styles.registerButtonText}>Crear Cuenta</Text>
         )}
@@ -146,5 +147,13 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  gloveSpinner: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  gloveSpinnerLarge: {
+    fontSize: 48,
+    textAlign: 'center',
   },
 });
