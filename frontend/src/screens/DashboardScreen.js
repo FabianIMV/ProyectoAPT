@@ -896,29 +896,6 @@ export default function DashboardScreen({ navigation, route }) {
         </View>
       )}
 
-      <View style={styles.header}>
-        {refreshing && (
-          <View style={styles.loadingHeader}>
-            <ActivityIndicator size="small" color={COLORS.secondary} />
-            <Text style={styles.loadingText}>Actualizando datos...</Text>
-          </View>
-        )}
-        {currentDayData && currentDayData.date && (
-          <Text style={styles.todayDate}>
-            {(() => {
-              // Parsear fecha explícitamente en hora local para evitar problemas de timezone
-              const dateParts = currentDayData.date.split(/[-T]/);
-              const localDate = new Date(
-                parseInt(dateParts[0]),      // year
-                parseInt(dateParts[1]) - 1,  // month (0-indexed)
-                parseInt(dateParts[2])       // day
-              );
-              return localDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-            })()}
-          </Text>
-        )}
-      </View>
-
       {/* Empty state - No plan */}
       {!loadingWeightCut && !activeWeightCut && (
         <View style={styles.emptyStateCard}>
@@ -1001,6 +978,29 @@ export default function DashboardScreen({ navigation, route }) {
       {currentDayData && dashboardData && (
         <View style={styles.heroMetricsSection}>
           <Text style={styles.heroMetricsTitle}>Métricas del Día</Text>
+          
+          <View style={styles.header}>
+            {refreshing && (
+              <View style={styles.loadingHeader}>
+                <ActivityIndicator size="small" color={COLORS.secondary} />
+                <Text style={styles.loadingText}>Actualizando datos...</Text>
+              </View>
+            )}
+            {currentDayData && currentDayData.date && (
+              <Text style={styles.todayDate}>
+                {(() => {
+                  // Parsear fecha explícitamente en hora local para evitar problemas de timezone
+                  const dateParts = currentDayData.date.split(/[-T]/);
+                  const localDate = new Date(
+                    parseInt(dateParts[0]),      // year
+                    parseInt(dateParts[1]) - 1,  // month (0-indexed)
+                    parseInt(dateParts[2])       // day
+                  );
+                  return localDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+                })()}
+              </Text>
+            )}
+          </View>
 
           <View style={styles.heroMetricsGrid}>
             {/* Peso Card */}
