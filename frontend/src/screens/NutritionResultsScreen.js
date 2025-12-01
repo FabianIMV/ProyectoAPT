@@ -168,7 +168,7 @@ export default function NutritionResultsScreen({ route, navigation }) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.newAnalysisButton} onPress={handleNewAnalysis}>
-          <Text style={styles.newAnalysisButtonText}>Analizar otra imagen</Text>
+          <Text style={styles.newAnalysisButtonText}>Analizar otro alimento</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
