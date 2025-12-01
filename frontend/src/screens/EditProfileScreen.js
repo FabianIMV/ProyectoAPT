@@ -263,8 +263,11 @@ export default function ProfileScreen({ navigation, route }) {
             routes: [{ name: 'Main' }],
           });
         } else if (navigation) {
-          // Notificar que el perfil fue actualizado
-          navigation.navigate('Main', { profileUpdated: true });
+          // Notificar que el perfil fue actualizado y navegar a Avances
+          navigation.navigate('Main', { 
+            screen: 'Dashboard',
+            params: { profileUpdated: true }
+          });
         }
       } else {
         console.error('Error saving profile:', response.status);
@@ -296,8 +299,8 @@ export default function ProfileScreen({ navigation, route }) {
             </Text>
             <Text style={styles.subtitle}>
               {isProfileIncomplete
-                ? 'Completa tu informacion para continuar'
-                : 'Actualiza tu informacion personal'}
+                ? 'Completa tu información para continuar'
+                : 'Actualiza tu información personal'}
             </Text>
 
             {isProfileIncomplete && (

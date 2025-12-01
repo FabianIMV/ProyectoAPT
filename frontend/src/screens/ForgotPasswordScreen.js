@@ -159,7 +159,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         style={styles.backLink}
         onPress={() => navigation.navigate('Login')}
       >
-        <Text style={styles.backLinkText}>Volver al inicio de sesion</Text>
+        <Text style={styles.backLinkText}>Volver al inicio de sesión</Text>
       </TouchableOpacity>
     </View>
   );

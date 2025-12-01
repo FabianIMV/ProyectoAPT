@@ -163,8 +163,17 @@ export default function NutritionResultsScreen({ route, navigation }) {
           {saving ? (
             <ActivityIndicator size="small" color={COLORS.primary} />
           ) : (
-            <Text style={styles.saveButtonText}>Guardar en Progreso Diario</Text>
+            <Text style={styles.saveButtonText}>Guardar en Registro Diario de Comidas</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.manualEntryButton} 
+          onPress={() => navigation.navigate('ManualFoodEntry')}
+        >
+          <Text style={styles.manualEntryButtonText}>
+            ¿Datos incorrectos?{'\n'}Ingrésalos manualmente
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.newAnalysisButton} onPress={handleNewAnalysis}>
@@ -316,5 +325,21 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  manualEntryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  manualEntryButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

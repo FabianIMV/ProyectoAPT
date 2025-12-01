@@ -156,7 +156,6 @@ export default function ProfileScreen({ navigation, route }) {
             {/* Información del usuario a la derecha */}
             <View style={styles.userInfoContainer}>
               <Text style={styles.userName}>{profileData.name}</Text>
-              <Text style={styles.userSubtitle}>Atleta Profesional</Text>
             </View>
           </View>
 

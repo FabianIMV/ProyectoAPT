@@ -61,9 +61,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
   // Estados para secciones colapsables
   const [isBasicInfoExpanded, setIsBasicInfoExpanded] = useState(true);
-  const [isSportInfoExpanded, setIsSportInfoExpanded] = useState(false);
-  const [isTrainingExpanded, setIsTrainingExpanded] = useState(false);
-  const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+  const [isSportInfoExpanded, setIsSportInfoExpanded] = useState(true);
+  const [isTrainingExpanded, setIsTrainingExpanded] = useState(true);
 
   // Cargar perfil del usuario al montar el componente
   useEffect(() => {
@@ -167,6 +166,9 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       );
     }
     setTempStartDate(null);
+    
+    // Scroll al siguiente campo (fecha de pesaje)
+    scrollToPosition(250);
   };
 
   const handleStartDateCancel = () => {
@@ -213,6 +215,9 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
     setFormData(prev => ({ ...prev, weighInDate: dateToUse }));
     setTempWeighInDate(null);
+    
+    // Scroll al siguiente campo (hora del pesaje)
+    scrollToPosition(400);
   };
 
   const handleWeighInDateCancel = () => {
@@ -622,7 +627,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               placeholderTextColor={COLORS.textSecondary}
               value={formData.targetWeightKg}
               onChangeText={(value) => handleInputChange('targetWeightKg', value)}
-              onFocus={() => scrollToPosition(100)}
               keyboardType="numeric"
             />
             {errors.targetWeightKg && <Text style={styles.errorText}>{errors.targetWeightKg}</Text>}
@@ -635,7 +639,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               style={[styles.datePickerButton, errors.startDate && styles.inputError]}
               onPress={() => {
                 setShowStartDatePicker(true);
-                scrollToPosition(200);
               }}
             >
               <Text style={[
@@ -699,7 +702,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               style={[styles.datePickerButton, errors.weighInDate && styles.inputError]}
               onPress={() => {
                 setShowWeighInDatePicker(true);
-                scrollToPosition(350);
               }}
               disabled={!formData.startDate}
             >
@@ -773,7 +775,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.weighInTime}
                 onChangeText={handleTimeChange}
-                onFocus={() => scrollToPosition(500)}
                 keyboardType="number-pad"
                 maxLength={5}
               />
@@ -936,7 +937,6 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.trainingSessionsPerWeek}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerWeek', value)}
-                onFocus={() => scrollToPosition(900)}
                 keyboardType="numeric"
               />
               {errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
@@ -951,54 +951,9 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 placeholderTextColor={COLORS.textSecondary}
                 value={formData.trainingSessionsPerDay}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerDay', value)}
-                onFocus={() => scrollToPosition(1000)}
                 keyboardType="numeric"
               />
               {errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
-            </View>
-          </View>
-        )}
-
-        {/* === ADVANCED CONFIGURATION SECTION (Collapsible) === */}
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => setIsAdvancedExpanded(!isAdvancedExpanded)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.sectionHeaderTitle}>⚙️ Configuración Avanzada</Text>
-          <Ionicons
-            name={isAdvancedExpanded ? "chevron-up" : "chevron-down"}
-            size={24}
-            color={COLORS.secondary}
-          />
-        </TouchableOpacity>
-
-        {isAdvancedExpanded && (
-          <View style={styles.section}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Modelo de IA</Text>
-              {Platform.OS === 'ios' ? (
-                <IOSSelector
-                  options={modelOptions}
-                  selectedValue={formData.model}
-                  onSelect={(value) => handleInputChange('model', value)}
-                  placeholder="Seleccionar modelo"
-                  modalVisible={showModelModal}
-                  setModalVisible={setShowModelModal}
-                />
-              ) : (
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={formData.model}
-                    style={styles.picker}
-                    onValueChange={(value) => handleInputChange('model', value)}
-                    dropdownIconColor={COLORS.secondary}
-                  >
-                    <Picker.Item label="Gemini 2.5 Flash (Rápido)" value="gemini-2.5-flash-latest" />
-                    <Picker.Item label="Gemini 2.5 Pro (Detallado)" value="gemini-2.5-pro" />
-                  </Picker>
-                </View>
-              )}
             </View>
           </View>
         )}

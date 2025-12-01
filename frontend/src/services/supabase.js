@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import * as FileSystem from 'expo-file-system';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
@@ -62,10 +61,14 @@ export const getUserProfile = async (userId) => {
 // Upload profile picture to Supabase Storage
 export const uploadProfilePicture = async (userId, uri) => {
   try {
+    console.log('📤 Iniciando upload de imagen:', uri);
+    
     const fileExt = uri.split('.').pop().toLowerCase();
     const fileName = `${userId}-${Date.now()}.${fileExt}`;
+    
+    console.log('📝 Nombre de archivo:', fileName);
 
-    // Usar FormData para subir el archivo
+    // Crear FormData para React Native
     const formData = new FormData();
     formData.append('file', {
       uri: uri,
@@ -73,30 +76,37 @@ export const uploadProfilePicture = async (userId, uri) => {
       type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
     });
 
-    // Subir usando fetch directo con FormData
-    const uploadResponse = await fetch(
-      `${supabaseUrl}/storage/v1/object/profile-pictures/${fileName}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-        },
-        body: formData,
-      }
-    );
+    console.log('📦 FormData creado');
+
+    // Subir usando fetch directo (el método del cliente de Supabase no funciona bien con FormData en RN)
+    const uploadUrl = `${supabaseUrl}/storage/v1/object/profile-pictures/${fileName}`;
+    
+    const uploadResponse = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+      },
+      body: formData,
+    });
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
+      console.error('❌ Error del servidor:', errorText);
       throw new Error(errorText);
     }
 
+    console.log('✅ Archivo subido exitosamente');
+
+    // Obtener URL pública
     const { data: publicUrlData } = supabase.storage
       .from('profile-pictures')
       .getPublicUrl(fileName);
 
+    console.log('🌐 URL pública:', publicUrlData.publicUrl);
+
     return { publicUrl: publicUrlData.publicUrl, error: null };
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('❌ Error uploading image:', error);
     return { publicUrl: null, error };
   }
 };

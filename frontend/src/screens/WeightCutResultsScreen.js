@@ -435,22 +435,6 @@ export default function WeightCutResultsScreen({ route, navigation }) {
         <Text style={styles.riskDescription}>{analysisResult.riskAnalysis.description}</Text>
       </View>
 
-      {/* Analysis Info */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>🤖 Información del Análisis</Text>
-        <View style={styles.infoGrid}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoIcon}>🎯</Text>
-            <Text style={styles.infoLabel}>Confianza</Text>
-            <Text style={styles.infoValue}>{analysisResult.analysisConfidence}%</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoIcon}>🧠</Text>
-            <Text style={styles.infoLabel}>Modelo IA</Text>
-            <Text style={styles.infoValue}>{getModelLabel(analysisResult.modelUsed)}</Text>
-          </View>
-        </View>
-      </View>
     </View>
   );
 
@@ -553,9 +537,16 @@ export default function WeightCutResultsScreen({ route, navigation }) {
   const getRiskColor = (riskCode) => {
     switch (riskCode) {
       case 'LOW': return '#4CAF50';
+      case 'STANDARD': return '#4CAF50';
+      case 'SAFE': return '#4CAF50';
       case 'MODERATE': return '#FF9800';
+      case 'MEDIUM': return '#FF9800';
       case 'AGGRESSIVE': return '#FF5722';
+      case 'HIGH': return '#FF5722';
+      case 'HIGH_RISK': return '#FF5722';
       case 'DANGEROUS': return '#F44336';
+      case 'CRITICAL': return '#D32F2F';
+      case 'EXTREME': return '#B71C1C';
       default: return COLORS.accent;
     }
   };
@@ -563,9 +554,16 @@ export default function WeightCutResultsScreen({ route, navigation }) {
   const getRiskIcon = (riskCode) => {
     switch (riskCode) {
       case 'LOW': return '✅';
+      case 'STANDARD': return '✅';
+      case 'SAFE': return '🟢';
       case 'MODERATE': return '⚠️';
+      case 'MEDIUM': return '⚠️';
       case 'AGGRESSIVE': return '🔴';
+      case 'HIGH': return '🔴';
+      case 'HIGH_RISK': return '⚠️🔴';
       case 'DANGEROUS': return '💀';
+      case 'CRITICAL': return '🚨';
+      case 'EXTREME': return '☠️';
       default: return '❓';
     }
   };
@@ -573,9 +571,16 @@ export default function WeightCutResultsScreen({ route, navigation }) {
   const getRiskLabel = (riskCode) => {
     switch (riskCode) {
       case 'LOW': return 'Bajo Riesgo';
+      case 'STANDARD': return 'Riesgo Estándar';
+      case 'SAFE': return 'Seguro';
       case 'MODERATE': return 'Riesgo Moderado';
+      case 'MEDIUM': return 'Riesgo Medio';
       case 'AGGRESSIVE': return 'Riesgo Agresivo';
+      case 'HIGH': return 'Riesgo Alto';
+      case 'HIGH_RISK': return 'Riesgo Alto';
       case 'DANGEROUS': return 'Riesgo Peligroso';
+      case 'CRITICAL': return 'Riesgo Crítico';
+      case 'EXTREME': return 'Riesgo Extremo';
       default: return riskCode;
     }
   };

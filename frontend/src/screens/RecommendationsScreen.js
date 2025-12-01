@@ -13,11 +13,11 @@ export default function RecommendationsScreen({ navigation }) {
   const [recommendations] = useState([
     {
       id: 1,
-      category: 'Hidratacion',
+      category: 'Hidratación',
       priority: 'low',
       icon: 'water',
       iconColor: '#2196F3',
-      title: 'Registra tu hidratacion',
+      title: 'Registra tu hidratación',
       description: 'Recuerda mantenerte hidratado durante el dia. Registra tu consumo de agua',
       action: 'Registrar agua',
     },
@@ -27,7 +27,7 @@ export default function RecommendationsScreen({ navigation }) {
       priority: 'medium',
       icon: 'nutrition',
       iconColor: '#4CAF50',
-      title: 'Consume mas proteinas',
+      title: 'Consume más proteínas',
       description: 'Las proteinas son esenciales para la recuperacion muscular',
       action: 'Ver recetas',
     },
@@ -47,7 +47,7 @@ export default function RecommendationsScreen({ navigation }) {
       priority: 'low',
       icon: 'barbell',
       iconColor: '#FF9800',
-      title: 'Sesion de entrenamiento',
+      title: 'Sesión de entrenamiento',
       description: 'Entrena en 2 horas. Recuerda consumir pre-workout',
       action: 'Ver rutina',
     },
@@ -297,7 +297,7 @@ export default function RecommendationsScreen({ navigation }) {
           <Ionicons name="bulb" size={24} color={COLORS.secondary} style={styles.tipIcon} />
           <View style={styles.tipContent}>
             <Text style={styles.tipText}>
-              Distribuye tu consumo de proteinas a lo largo del dia para maximizar la sintesis muscular
+              Distribuye tu consumo de proteínas a lo largo del día para maximizar la síntesis muscular
             </Text>
           </View>
         </View>

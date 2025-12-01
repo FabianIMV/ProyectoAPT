@@ -294,7 +294,7 @@ export default function NutritionTrackingScreen({ navigation }) {
             <View style={styles.caloriesCircle}>
               <Text style={styles.caloriesValue}>{totalCalories}</Text>
               <Text style={styles.caloriesLabel}>de {targetCalories}</Text>
-              <Text style={styles.caloriesUnit}>calorias</Text>
+              <Text style={styles.caloriesUnit}>calorías</Text>
             </View>
           </View>
 

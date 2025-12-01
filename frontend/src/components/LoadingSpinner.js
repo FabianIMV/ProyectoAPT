@@ -163,18 +163,20 @@ export default function LoadingSpinner({
           />
         </Animated.View>
 
-        {/* Círculo interior */}
-        <View
+        {/* Guante de boxeo giratorio */}
+        <Animated.View
           style={[
             styles.spinnerInner,
             {
               width: config.center,
               height: config.center,
-              borderRadius: config.center / 2,
               top: (config.outer - config.center) / 2,
+              transform: [{ rotate: spin }],
             },
           ]}
-        />
+        >
+          <Text style={styles.glove}>🥊</Text>
+        </Animated.View>
 
         {showTitle && <Text style={styles.title}>NutriCombat</Text>}
 
@@ -263,7 +265,12 @@ const styles = StyleSheet.create({
   },
   spinnerInner: {
     position: 'absolute',
-    backgroundColor: COLORS.secondary,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glove: {
+    fontSize: 24,
   },
   title: {
     fontSize: 32,
