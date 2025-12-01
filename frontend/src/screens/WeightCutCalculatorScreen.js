@@ -491,6 +491,11 @@ export default function WeightCutCalculatorScreen({ navigation }) {
         requestBody.weighInTime = formData.weighInTime;
       }
 
+      // Agregar daysToCut calculado en el frontend
+      if (formData.daysToCut) {
+        requestBody.daysToCut = parseInt(formData.daysToCut);
+      }
+
       console.log('Sending request:', requestBody);
 
       // Create abort controller for timeout

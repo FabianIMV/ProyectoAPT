@@ -743,10 +743,13 @@ export default function DashboardScreen({ navigation, route }) {
           [{ text: 'Entendido' }]
         );
 
-        // Ejecutar reajuste automáticamente
-        setIsAutoReadjusting(true);
-        await executeReadjustTimeline(targetDay, weightKg, true); // true = es automático
-        setIsAutoReadjusting(false);
+        // Ejecutar reajuste automáticamente con loading
+        try {
+          setIsAutoReadjusting(true);
+          await executeReadjustTimeline(targetDay, weightKg, true); // true = es automático
+        } finally {
+          setIsAutoReadjusting(false);
+        }
       } else if (weightDifference > 0) {
         console.log('ℹ️ Peso ligeramente por encima, pero dentro del margen aceptable');
       } else {
@@ -754,6 +757,7 @@ export default function DashboardScreen({ navigation, route }) {
       }
     } catch (error) {
       console.error('❌ Error en verificación automática de reajuste:', error);
+      setIsAutoReadjusting(false); // Asegurar que se oculte el loading en caso de error
       // No mostrar error al usuario, ya que es un proceso automático en segundo plano
     }
   };
@@ -1696,6 +1700,19 @@ export default function DashboardScreen({ navigation, route }) {
         loading={savingWeight}
         currentDay={currentDayNumber}
       />
+
+      {/* Modal de Loading para Reajuste Automático */}
+      {isAutoReadjusting && (
+        <View style={styles.readjustOverlay}>
+          <View style={styles.readjustModal}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.readjustTitle}>Reajustando Plan...</Text>
+            <Text style={styles.readjustText}>
+              Recalculando tu timeline con IA para mantener tu objetivo final.
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
     </SafeAreaView>
   );
@@ -2744,6 +2761,41 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Readjust Loading Overlay Styles
+  readjustOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    zIndex: 10000,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  readjustModal: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    padding: 40,
+    maxWidth: 350,
+    width: '100%',
+    alignItems: 'center',
+  },
+  readjustTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  readjustText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   // Water Progress Card Styles
   waterProgressCard: {
