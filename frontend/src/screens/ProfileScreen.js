@@ -197,9 +197,6 @@ export default function ProfileScreen({ navigation, route }) {
             <Ionicons name="chevron-forward" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
 
-          {/* Opciones */}
-          <Text style={styles.sectionTitle}>Opciones</Text>
-          
           <TouchableOpacity
             style={styles.optionCard}
             onPress={() => navigation.navigate('WeightCutHistory')}
@@ -403,12 +400,12 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: 'rgba(0, 255, 200, 0.15)',
+    shadowColor: COLORS.secondary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 5,
   },
   optionIcon: {
     width: 45,
