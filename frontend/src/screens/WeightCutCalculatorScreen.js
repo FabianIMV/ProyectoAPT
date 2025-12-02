@@ -1271,6 +1271,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 15,
     borderTopRightRadius: 15,
     padding: 16,
+    marginTop: 12,
     marginBottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',

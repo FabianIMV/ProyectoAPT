@@ -102,9 +102,6 @@ export default function WeightCutHistoryScreen({ navigation }) {
       }
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Historial de Cortes de Peso</Text>
-        <Text style={styles.subtitle}>Planes de corte anteriores</Text>
-
         {weightCuts.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>📋</Text>

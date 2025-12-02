@@ -90,7 +90,7 @@ export default function RegisterScreen({ navigation }) {
         onPress={() => navigation.navigate('Login')}
       >
         <Text style={styles.loginLinkText}>
-¿Ya tienes cuenta? Inicia sesión aquí
+          ¿Ya tienes cuenta? <Text style={styles.loginLinkTextBold}>Inicia sesión aquí</Text>
         </Text>
       </TouchableOpacity>
     </View>
@@ -144,6 +144,11 @@ const styles = StyleSheet.create({
   loginLinkText: {
     color: COLORS.secondary,
     fontSize: 16,
+  },
+  loginLinkTextBold: {
+    color: COLORS.secondary,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   disabledButton: {
     opacity: 0.6,

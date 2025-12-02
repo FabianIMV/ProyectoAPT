@@ -13,7 +13,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   const handleSendCode = async () => {
     if (!email) {
-      Alert.alert('Error', 'Ingresa tu correo electronico');
+      Alert.alert('Error', 'Ingresa tu correo electrónico');
       return;
     }
 
@@ -70,17 +70,20 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Recuperar Contrasena</Text>
+      <View style={styles.logoContainer}>
+        <Text style={styles.logoGlove}>🥊</Text>
+      </View>
+      <Text style={styles.title}>Recuperar Contraseña</Text>
 
       {step === 1 ? (
         <>
           <Text style={styles.subtitle}>
-            Ingresa tu correo electronico y te enviaremos un codigo de recuperacion
+            Ingresa tu correo electrónico y te enviaremos un código de recuperación
           </Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Correo electronico"
+            placeholder="Correo electrónico"
             placeholderTextColor={COLORS.textSecondary}
             value={email}
             onChangeText={setEmail}
@@ -94,16 +97,16 @@ export default function ForgotPasswordScreen({ navigation }) {
             disabled={loading}
           >
             {loading ? (
-              <Text style={styles.gloveSpinner}>🥊</Text>
+              <ActivityIndicator color={COLORS.primary} />
             ) : (
-              <Text style={styles.buttonText}>Enviar Codigo</Text>
+              <Text style={styles.buttonText}>Enviar Código</Text>
             )}
           </TouchableOpacity>
         </>
       ) : (
         <>
           <Text style={styles.subtitle}>
-            Ingresa el codigo que recibiste en tu correo y tu nueva contrasena
+            Ingresa el código que recibiste en tu correo y tu nueva contraseña
           </Text>
 
           <TextInput
@@ -139,9 +142,9 @@ export default function ForgotPasswordScreen({ navigation }) {
             disabled={loading}
           >
             {loading ? (
-              <Text style={styles.gloveSpinner}>🥊</Text>
+              <ActivityIndicator color={COLORS.primary} />
             ) : (
-              <Text style={styles.buttonText}>Restablecer Contrasena</Text>
+              <Text style={styles.buttonText}>Restablecer Contraseña</Text>
             )}
           </TouchableOpacity>
 
@@ -150,7 +153,7 @@ export default function ForgotPasswordScreen({ navigation }) {
             onPress={handleSendCode}
             disabled={loading}
           >
-            <Text style={styles.resendText}>Reenviar codigo</Text>
+            <Text style={styles.resendText}>Reenviar código</Text>
           </TouchableOpacity>
         </>
       )}
@@ -171,6 +174,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     paddingHorizontal: 20,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoGlove: {
+    fontSize: 80,
+    textAlign: 'center',
   },
   title: {
     fontSize: 32,

@@ -67,23 +67,24 @@ export default function DashboardScreen({ navigation, route }) {
     }
   }, [userId, user]);
 
-  // Efecto para usar datos precargados al montar el componente
+  // Sistema de precarga APT: carga instantánea de datos desde caché del AuthContext
   useEffect(() => {
     if (preloadedData && preloadedData.profile) {
-      console.log('⚡ Usando datos precargados del AuthContext');
-      // Cargar datos instantáneamente desde caché
-      setUserProfile(preloadedData.profile);
-      setActiveWeightCut(preloadedData.activePlan);
-      setActiveTimeline(preloadedData.timeline);
+      console.log('⚡ [APT] Inicialización rápida desde precarga');
+      // Optimización APT: poblar datos instantáneamente sin espera
+      const { profile, activePlan, timeline } = preloadedData;
+      setUserProfile(profile);
+      setActiveWeightCut(activePlan);
+      setActiveTimeline(timeline);
       setLoadingWeightCut(false);
       setLoadingTimeline(false);
 
-      // Si hay timeline, configurar needsTimeline
-      if (preloadedData.timeline) {
-        setNeedsTimeline(false);
-      } else if (preloadedData.activePlan) {
-        setNeedsTimeline(true);
-      }
+      // Lógica APT para determinar estado del timeline
+      const hasActiveTimeline = Boolean(timeline);
+      const needsTimelineGeneration = Boolean(activePlan && !timeline);
+      setNeedsTimeline(needsTimelineGeneration);
+      
+      console.log('[APT] Estado inicial:', { hasActiveTimeline, needsTimelineGeneration });
     }
   }, [preloadedData]);
 
@@ -382,10 +383,16 @@ export default function DashboardScreen({ navigation, route }) {
           ? parseFloat(actualWeight)
           : parseFloat(activePlan.analysis_request?.currentWeightKg);
 
+        // APT: cálculo optimizado de progreso de peso con fallbacks robustos
+        const targetWeightForProgress = currentDayInfo 
+          ? parseFloat(currentDayInfo.targets.weightKg) 
+          : parseFloat(activePlan.analysis_request?.targetWeightKg || 0);
+        const startingWeight = parseFloat(activePlan.analysis_request?.currentWeightKg || currentWeight);
+        
         const weightProgress = calculateWeightProgress(
           currentWeight,
-          currentDayInfo ? parseFloat(currentDayInfo.targets.weightKg) : parseFloat(activePlan.analysis_request?.targetWeightKg),
-          parseFloat(activePlan.analysis_request?.currentWeightKg)
+          targetWeightForProgress,
+          startingWeight
         );
 
         const currentPhase = currentDayInfo
@@ -484,21 +491,29 @@ export default function DashboardScreen({ navigation, route }) {
   };
 
   const handleGenerateTimeline = async () => {
+    // Validación APT: verificar requisitos mínimos
     if (!userId || !activeWeightCut) {
-      Alert.alert('Error', 'No se encontró un plan activo');
+      Alert.alert(
+        '❌ Error de Validación',
+        'No se detectó un plan activo. Por favor verifica tu configuración.',
+        [{ text: 'Entendido' }]
+      );
       return;
     }
 
-    const daysToCut = activeWeightCut.analysis_request?.daysToCut || 7;
-    const estimatedSeconds = Math.max(90, daysToCut * 15);
+    const totalDays = activeWeightCut.analysis_request?.daysToCut || 7;
+    const estimatedDuration = Math.max(90, totalDays * 15);
+    const estimatedMinutes = Math.floor(estimatedDuration / 60);
+    const estimatedSecondsRemainder = estimatedDuration % 60;
 
     Alert.alert(
-      'Generar Timeline',
-      `Se generará tu plan diario personalizado de ${daysToCut} días.\n\n⏱️ Tiempo estimado: ${estimatedSeconds}s\n\n¿Continuar?`,
+      '🎯 Generar Plan Diario',
+      `Tu timeline personalizado APT será generado con ${totalDays} días de planificación inteligente.\n\n⏱️ Tiempo estimado: ${estimatedMinutes}m ${estimatedSecondsRemainder}s\n\n🤖 La IA analizará tus datos para crear un plan óptimo.\n\n¿Deseas continuar?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Ahora No', style: 'cancel' },
         {
-          text: 'Generar',
+          text: 'Generar Plan',
+          style: 'default',
           onPress: () => executeGenerateTimeline()
         }
       ]
@@ -1066,7 +1081,12 @@ export default function DashboardScreen({ navigation, route }) {
                 <View style={[
                   styles.heroMetricProgressFill,
                   {
-                    width: `${Math.min(100, ((dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0) / currentDayData.targets.caloriesIntake) * 100)}%`,
+                    width: `${(() => {
+                      const caloriesConsumed = dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0;
+                      const caloriesTarget = currentDayData.targets.caloriesIntake || 1;
+                      const caloriesProgressPercent = (caloriesConsumed / caloriesTarget) * 100;
+                      return Math.min(100, Math.max(0, caloriesProgressPercent));
+                    })()}%`,
                     backgroundColor: ((dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0) / currentDayData.targets.caloriesIntake) >= 1 ? '#4CAF50' : COLORS.secondary
                   }
                 ]} />
@@ -1100,7 +1120,11 @@ export default function DashboardScreen({ navigation, route }) {
                 <View style={[
                   styles.heroMetricProgressFill,
                   {
-                    width: `${Math.min(100, (dailyWaterIntake / currentDayData.targets.waterIntakeLiters) * 100)}%`,
+                    width: `${(() => {
+                      const waterTarget = currentDayData.targets.waterIntakeLiters;
+                      const waterProgress = (dailyWaterIntake / waterTarget) * 100;
+                      return Math.min(100, Math.max(0, waterProgress));
+                    })()}%`,
                     backgroundColor: dailyWaterIntake >= currentDayData.targets.waterIntakeLiters ? '#4CAF50' : '#2196F3'
                   }
                 ]} />
@@ -1112,6 +1136,52 @@ export default function DashboardScreen({ navigation, route }) {
                 </View>
               )}
             </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* === PLAN DEL DÍA - Siempre visible === */}
+      {currentDayData && (
+        <View style={styles.planDelDiaSection}>
+          <View style={styles.planDelDiaHeader}>
+            <Text style={styles.planDelDiaIcon}>📅</Text>
+            <Text style={styles.planDelDiaTitle}>Plan del Día {currentDayData.day}</Text>
+          </View>
+          
+          <View style={styles.planDelDiaGrid}>
+            <View style={styles.planDelDiaCard}>
+              <Text style={styles.planDelDiaCardIcon}>🎯</Text>
+              <View style={styles.planDelDiaCardInfo}>
+                <Text style={styles.planDelDiaCardLabel}>Peso Objetivo</Text>
+                <Text style={styles.planDelDiaCardValue}>{currentDayData.targets.weightKg} kg</Text>
+              </View>
+            </View>
+            
+            <View style={styles.planDelDiaCard}>
+              <Text style={styles.planDelDiaCardIcon}>🔥</Text>
+              <View style={styles.planDelDiaCardInfo}>
+                <Text style={styles.planDelDiaCardLabel}>Calorías</Text>
+                <Text style={styles.planDelDiaCardValue}>{currentDayData.targets.caloriesIntake}</Text>
+              </View>
+            </View>
+            
+            <View style={styles.planDelDiaCard}>
+              <Text style={styles.planDelDiaCardIcon}>💧</Text>
+              <View style={styles.planDelDiaCardInfo}>
+                <Text style={styles.planDelDiaCardLabel}>Agua</Text>
+                <Text style={styles.planDelDiaCardValue}>{currentDayData.targets.waterIntakeLiters}L</Text>
+              </View>
+            </View>
+            
+            <View style={styles.planDelDiaCard}>
+              <Text style={styles.planDelDiaCardIcon}>🏃</Text>
+              <View style={styles.planDelDiaCardInfo}>
+                <Text style={styles.planDelDiaCardLabel}>Cardio</Text>
+                <Text style={styles.planDelDiaCardValue}>
+                  {currentDayData.targets.cardioMinutes > 0 ? `${currentDayData.targets.cardioMinutes} min` : 'N/A'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
       )}
@@ -1415,129 +1485,44 @@ export default function DashboardScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* 2. PLAN DEL DÍA - Colapsable */}
+      {/* 2. RECOMENDACIONES IA - Colapsable */}
       {currentDayData && (
         <>
-        <TouchableOpacity
-          style={[styles.unifiedCard, { borderLeftColor: COLORS.secondary }]}
-          onPress={() => setIsPlanExpanded(!isPlanExpanded)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.unifiedCardHeader}>
-            <View style={styles.unifiedHeaderLeft}>
-              <Text style={styles.unifiedIcon}>📅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.unifiedTitle}>Plan del Día {currentDayData.day}</Text>
-                <TouchableOpacity 
-                  style={styles.helpButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    Alert.alert(
-                      '📅 Plan del Día',
-                      'Aquí encontrarás tus objetivos diarios: peso meta, calorías, hidratación y cardio. Estos valores están calculados específicamente para el día ' + currentDayData.day + ' de tu plan de corte.',
-                      [{ text: 'Entendido' }]
-                    );
-                  }}
-                >
-                  <Ionicons name="help-circle-outline" size={18} color={COLORS.secondary} />
-                </TouchableOpacity>
-              </View>
+        {/* Recomendaciones */}
+        {(
+          <View style={[styles.todayCard, { marginTop: 0 }]}>
+            <View style={styles.recommendationsHeader}>
+              <Ionicons name="chevron-back" size={20} color={COLORS.textSecondary} style={{ opacity: 0.5 }} />
+              <Text style={styles.todayRecommendationsTitle}>Recomendaciones del Día</Text>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} style={{ opacity: 0.5 }} />
             </View>
-            <Ionicons
-              name={isPlanExpanded ? "chevron-up" : "chevron-down"}
-              size={24}
-              color={COLORS.secondary}
-            />
-          </View>
 
-          {/* Vista compacta - siempre visible */}
-          {!isPlanExpanded && (
-            <View style={styles.unifiedCompactView}>
-              <View style={styles.todayTargetsRow}>
-                <View style={styles.todayCompactItem}>
-                  <Text style={styles.todayCompactIcon}>🎯</Text>
-                  <Text style={styles.todayCompactValue}>{currentDayData.targets.weightKg} kg</Text>
-                </View>
-                <View style={styles.todayCompactItem}>
-                  <Text style={styles.todayCompactIcon}>🔥</Text>
-                  <Text style={styles.todayCompactValue}>{currentDayData.targets.caloriesIntake} cal</Text>
-                </View>
-                {currentDayData.targets.cardioMinutes > 0 && (
-                  <View style={styles.todayCompactItem}>
-                    <Text style={styles.todayCompactIcon}>🏃</Text>
-                    <Text style={styles.todayCompactValue}>{currentDayData.targets.cardioMinutes} min</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.unifiedCompactHint}>Toca para ver detalles</Text>
-            </View>
-          )}
-
-          {/* Vista expandida */}
-          {isPlanExpanded && (
-            <View style={styles.unifiedExpandedView}>
-              <View style={styles.todayTargetsGrid}>
-                <View style={styles.todayTargetItem}>
-                  <Text style={styles.todayTargetIcon}>🎯</Text>
-                  <Text style={styles.todayTargetLabel}>Peso Objetivo</Text>
-                  <Text style={styles.todayTargetValue}>{currentDayData.targets.weightKg} kg</Text>
-                </View>
-                <View style={styles.todayTargetItem}>
-                  <Text style={styles.todayTargetIcon}>🔥</Text>
-                  <Text style={styles.todayTargetLabel}>Calorías</Text>
-                  <Text style={styles.todayTargetValue}>{currentDayData.targets.caloriesIntake}</Text>
-                </View>
-                <View style={styles.todayTargetItem}>
-                  <Text style={styles.todayTargetIcon}>💧</Text>
-                  <Text style={styles.todayTargetLabel}>Agua</Text>
-                  <Text style={styles.todayTargetValue}>{currentDayData.targets.waterIntakeLiters}L</Text>
-                </View>
-              </View>
-
-              {/* Macros */}
-             
-
-              {currentDayData.targets.cardioMinutes > 0 && (
-                <View style={styles.todayCardioSection}>
-                  <Text style={styles.todayCardioText}>
-                    🏃 Cardio: {currentDayData.targets.cardioMinutes} min
-                    {currentDayData.targets.saunaSuitRequired && ' 🧥 (con traje sauna)'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Recomendaciones FUERA del TouchableOpacity para permitir scroll */}
-        {isPlanExpanded && currentDayData && (
-          <View style={[styles.todayCard, { marginTop: 10 }]}>
-            <Text style={styles.todayRecommendationsTitle}>Recomendaciones del Día</Text>
-
-            {/* Carousel de recomendaciones */}
-            <Text style={styles.carouselHint}>Desliza para ver más</Text>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.recommendationsCarousel}
-              contentContainerStyle={styles.carouselContent}
-              decelerationRate="fast"
-              snapToInterval={Dimensions.get('window').width - 60}
-              snapToAlignment="center"
-            >
-              {/* Recomendaciones IA (PRIMERO - todas las que existen) */}
+            {/* Carousel APT: Recomendaciones Inteligentes */}
+            <View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.recommendationsCarousel}
+                contentContainerStyle={styles.carouselContent}
+                decelerationRate="fast"
+                snapToInterval={width - 60}
+                snapToAlignment="start"
+                nestedScrollEnabled={true}
+              >
+              {/* Recomendaciones IA - Todas las del día */}
               {aiRecommendations && aiRecommendations.length > 0 && aiRecommendations.map((recommendation, idx) => {
                 const severity = recommendation.severity || 'normal';
                 const severityIcon = severity === 'danger' ? '⚠️' : severity === 'warning' ? '⚡' : '✓';
                 const severityColor = severity === 'danger' ? '#ff4444' : severity === 'warning' ? '#ffaa00' : '#4CAF50';
 
                 return (
-                  <View key={idx} style={styles.carouselCard}>
+                  <View key={`ai-rec-${idx}`} style={styles.carouselCard}>
                     <View style={styles.aiRecommendationsBadge}>
                       <View style={styles.aiRecommendationsHeader}>
                         <Text style={{ fontSize: 18, marginRight: 5 }}>{severityIcon}</Text>
-                        <Text style={styles.aiRecommendationsLabel}>Recomendaciones IA {aiRecommendations.length > 1 ? `(${idx + 1}/${aiRecommendations.length})` : ''}</Text>
+                        <Text style={styles.aiRecommendationsLabel}>
+                          Recomendaciones IA {aiRecommendations.length > 1 ? `(${idx + 1} de ${aiRecommendations.length})` : ''}
+                        </Text>
                       </View>
                       <Text style={styles.aiRecommendationsTimestamp}>
                         {new Date(recommendation.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
@@ -1546,13 +1531,13 @@ export default function DashboardScreen({ navigation, route }) {
                         {recommendation.status}
                       </Text>
                       <Text style={styles.todayRecommendationText}>{recommendation.message}</Text>
-                      {recommendation.actions && recommendation.actions.slice(0, 3).map((action, index) => {
+                      {recommendation.actions && recommendation.actions.slice(0, 3).map((action, actionIdx) => {
                         const hasGoodWord = /bien|excelente|perfecto|correcto|óptimo|bueno/i.test(action);
                         const hasBadWord = /crítico|urgente|inmediatamente|peligro|inaceptable|bajo|mal/i.test(action);
                         const actionColor = hasGoodWord ? '#4CAF50' : hasBadWord ? '#ff4444' : COLORS.text;
 
                         return (
-                          <Text key={index} style={[styles.aiActionItem, { color: actionColor }]}>
+                          <Text key={`action-${actionIdx}`} style={[styles.aiActionItem, { color: actionColor }]}>
                             {hasBadWord ? '⚠️ ' : hasGoodWord ? '✓ ' : '• '}{action}
                           </Text>
                         );
@@ -1562,18 +1547,19 @@ export default function DashboardScreen({ navigation, route }) {
                 );
               })}
 
-              {/* Recomendaciones del Plan (SEGUNDO) */}
+              {/* Recomendaciones del Timeline (Del Plan Diario) */}
               <View style={styles.carouselCard}>
                 <View style={styles.timelineRecommendationsCard}>
                   <View style={styles.timelineRecommendationsHeader}>
                     <Ionicons name="calendar" size={18} color={COLORS.text} />
-                    <Text style={styles.timelineRecommendationsLabel}>Recomendaciones del Plan</Text>
+                    <Text style={styles.timelineRecommendationsLabel}>Plan del Día</Text>
                   </View>
                   <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.nutritionFocus}</Text>
                   <Text style={styles.todayRecommendationText}>{currentDayData.recommendations.hydrationNote}</Text>
                 </View>
               </View>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </View>
         )}
         </>
@@ -1653,7 +1639,7 @@ export default function DashboardScreen({ navigation, route }) {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Botón Flotante de Recomendaciones IA */}
+      {/* Botón Flotante APT: Asistente de Recomendaciones IA */}
       {currentDayData && timelineId && currentDayNumber && (
         <TouchableOpacity
           style={[
@@ -1661,32 +1647,37 @@ export default function DashboardScreen({ navigation, route }) {
             (!dailyProgressData?.actualCalories && !dailyProgressData?.actual_calories) && styles.aiFloatingButtonDisabled
           ]}
           onPress={() => {
-            // Validar que haya datos nutricionales ingresados
-            const hasCalories = dailyProgressData?.actualCalories || dailyProgressData?.actual_calories;
+            // Sistema de validación APT: verificar datos mínimos requeridos
+            const registeredCalories = dailyProgressData?.actualCalories || dailyProgressData?.actual_calories;
+            const hasMinimumData = registeredCalories && registeredCalories > 0;
 
-            if (!hasCalories || hasCalories === 0) {
+            if (!hasMinimumData) {
               Alert.alert(
-                'Sin Datos Nutricionales',
-                'Debes registrar al menos una comida en "Seguimiento Nutricional" antes de obtener feedback de IA sobre tu progreso del día.',
-                [{ text: 'Entendido' }]
+                '📊 Datos Insuficientes',
+                'Para obtener recomendaciones personalizadas de IA, primero registra al menos una comida en "Seguimiento Nutricional".\n\nLa IA analizará tu progreso del día y te dará feedback específico.',
+                [{ text: 'Entendido', style: 'default' }]
               );
               return;
             }
 
+            // Navegar al motor de feedback APT con callback
             navigation.navigate('NutritionFeedback', {
               timelineId: timelineId,
               dayNumber: currentDayNumber,
-              onAccept: (recommendations) => {
-                const newRecommendation = {
-                  ...recommendations,
-                  timestamp: new Date().toISOString()
+              onAccept: (aiRecommendationsData) => {
+                const timestampedRecommendation = {
+                  ...aiRecommendationsData,
+                  timestamp: new Date().toISOString(),
+                  source: 'APT_AI_Engine'
                 };
-                // Agregar al inicio del array (más reciente primero)
-                setAiRecommendations(prev => [newRecommendation, ...prev]);
+                // Agregar recomendación más reciente al inicio
+                setAiRecommendations(prevRecs => [timestampedRecommendation, ...prevRecs]);
               }
             });
           }}
-          activeOpacity={0.8}
+          activeOpacity={0.75}
+          accessibilityLabel="Obtener recomendaciones de IA"
+          accessibilityHint="Presiona para analizar tu progreso del día con inteligencia artificial"
           disabled={!dailyProgressData?.actualCalories && !dailyProgressData?.actual_calories}
         >
           <Ionicons name="bulb" size={28} color="#fff" />
@@ -2528,9 +2519,10 @@ const styles = StyleSheet.create({
   todayCard: {
     backgroundColor: COLORS.accent,
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    paddingBottom: 10,
     borderLeftWidth: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -2611,7 +2603,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: COLORS.secondary,
-    marginBottom: 10,
+    marginBottom: 0,
   },
   todayRecommendationText: {
     fontSize: 13,
@@ -2628,24 +2620,31 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   recommendationsCarousel: {
-    marginTop: 10,
-    marginHorizontal: -20, // Compensar padding del contenedor padre
+    marginTop: 4,
+    marginHorizontal: -16,
   },
   carouselContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    gap: 12,
   },
   carouselCard: {
-    width: Dimensions.get('window').width - 80, // Ajustado para márgenes
-    marginHorizontal: 10,
+    width: Dimensions.get('window').width - 72,
+  },
+  recommendationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 0,
   },
   // Recomendaciones IA Badge
   aiRecommendationsBadge: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.primary + '60',
     borderRadius: 12,
-    padding: 18, // Más padding
+    padding: 14,
+    paddingBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.secondary,
-    minHeight: 200,
   },
   aiRecommendationsHeader: {
     flexDirection: 'row',
@@ -2672,12 +2671,12 @@ const styles = StyleSheet.create({
   },
   // Recomendaciones del timeline
   timelineRecommendationsCard: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.primary + '60',
     borderRadius: 12,
-    padding: 18,
+    padding: 14,
+    paddingBottom: 16,
     borderLeftWidth: 4,
     borderLeftColor: COLORS.text,
-    minHeight: 200,
   },
   timelineRecommendationsHeader: {
     flexDirection: 'row',
@@ -3054,10 +3053,64 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontWeight: '600',
   },
+  // Plan del Día Section
+  planDelDiaSection: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  planDelDiaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 6,
+  },
+  planDelDiaIcon: {
+    fontSize: 20,
+  },
+  planDelDiaTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  planDelDiaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  planDelDiaCard: {
+    width: '48.5%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  planDelDiaCardIcon: {
+    fontSize: 24,
+  },
+  planDelDiaCardInfo: {
+    flex: 1,
+  },
+  planDelDiaCardLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  planDelDiaCardValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
   // Estadísticas Embebidas
   statsEmbeddedSection: {
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
     backgroundColor: COLORS.accent,
     borderRadius: 16,
     padding: 20,

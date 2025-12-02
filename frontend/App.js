@@ -52,7 +52,7 @@ export default function App() {
         <Stack.Screen
           name="Register"
           component={RegisterScreen}
-          options={{ title: 'Crear Cuenta' }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="ForgotPassword"

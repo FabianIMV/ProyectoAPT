@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../styles/colors';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -75,6 +75,9 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.logoContainer}>
+        <Text style={styles.logoGlove}>🥊</Text>
+      </View>
       <Text style={styles.title}>NutriCombat</Text>
       <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
 
@@ -121,7 +124,7 @@ export default function LoginScreen({ navigation }) {
         disabled={loading}
       >
         {loading ? (
-          <Text style={styles.gloveSpinner}>🥊</Text>
+          <ActivityIndicator color={COLORS.primary} />
         ) : (
           <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
         )}
@@ -131,7 +134,7 @@ export default function LoginScreen({ navigation }) {
         style={styles.forgotPasswordLink}
         onPress={() => navigation.navigate('ForgotPassword')}
       >
-        <Text style={styles.forgotPasswordText}>Olvidaste tu contrasena?</Text>
+        <Text style={styles.forgotPasswordText}>Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -152,6 +155,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     paddingHorizontal: 20,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  logoGlove: {
+    fontSize: 80,
+    textAlign: 'center',
   },
   title: {
     fontSize: 32,

@@ -295,15 +295,6 @@ export default function ProfileScreen({ navigation, route }) {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.innerContainer}>
-            <Text style={styles.title}>
-              {isProfileIncomplete ? 'Completa tu Perfil' : 'Modificar Perfil'}
-            </Text>
-            <Text style={styles.subtitle}>
-              {isProfileIncomplete
-                ? 'Completa tu información para continuar'
-                : 'Actualiza tu información personal'}
-            </Text>
-
             {isProfileIncomplete && (
               <View style={styles.warningBanner}>
                 <Text style={styles.warningText}>
