@@ -97,8 +97,6 @@ export default function SplashScreen({ navigation }) {
         <Text style={styles.appName}>NutriCombat IA</Text>
       </View>
 
-      <Text style={styles.gloveSpinnerLarge}>🥊</Text>
-
       <Text style={styles.loadingText}>
         {isLoading ? 'Iniciando...' : 'Cargando datos...'}
       </Text>

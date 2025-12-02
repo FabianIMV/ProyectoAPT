@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator
+  Animated
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,27 @@ export default function ManualFoodEntryScreen({ navigation }) {
   const [portionType, setPortionType] = useState('mediana');
   const [portionGrams, setPortionGrams] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isLoading) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [isLoading]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const foodTypes = [
     { value: 'comida', label: 'Comida', icon: 'restaurant' },
@@ -118,7 +139,7 @@ export default function ManualFoodEntryScreen({ navigation }) {
         <Text style={styles.headerTitle}>Registro Manual</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!isLoading}>
         <Text style={styles.subtitle}>
           Ingresa los detalles del alimento y la IA estimará su información nutricional
         </Text>
@@ -234,6 +255,19 @@ export default function ManualFoodEntryScreen({ navigation }) {
           💡 La IA estimará los valores nutricionales basándose en bases de datos estándar
         </Text>
       </ScrollView>
+
+      {/* Overlay de carga */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <Animated.Text style={[styles.gloveSpinnerLarge, { transform: [{ rotate: spin }] }]}>
+              🥊
+            </Animated.Text>
+            <Text style={styles.loadingText}>Analizando alimento...</Text>
+            <Text style={styles.loadingSubtext}>La IA está procesando la información</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -399,6 +433,42 @@ const styles = StyleSheet.create({
   },
   gloveSpinnerLarge: {
     fontSize: 48,
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(18, 18, 18, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 30,
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    shadowColor: COLORS.secondary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  loadingText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
     textAlign: 'center',
   },
 });

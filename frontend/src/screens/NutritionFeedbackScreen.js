@@ -34,6 +34,8 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
   const [cachedFeedback, setCachedFeedback] = useState(null);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [accepting, setAccepting] = useState(false);
+  const [refreshingAnalysis, setRefreshingAnalysis] = useState(false);
+  const spinValue = React.useRef(new Animated.Value(0)).current;
 
   const userName = user?.full_name?.split(' ')[0] || user?.name || 'Atleta';
 
@@ -57,6 +59,21 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
   useEffect(() => {
     loadCachedFeedback();
   }, []);
+
+  // Animación del spinner
+  useEffect(() => {
+    if (refreshingAnalysis) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [refreshingAnalysis]);
 
   // Cargar feedback en caché
   const loadCachedFeedback = async () => {
@@ -236,7 +253,7 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
           <Ionicons name="sparkles" size={40} color={COLORS.secondary} />
         </View>
       </View>
-      <Text style={styles.emptyTitle}>Feedback Nutricional IA</Text>
+      <Text style={styles.emptyTitle}>Feedback Nutricional con IA</Text>
       <Text style={styles.emptySubtitle}>
         Análisis personalizado de tu progreso diario en calorías e hidratación
       </Text>
@@ -320,28 +337,34 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
     </View>
   );
 
-  // Configurar el botón de refrescar en el header del Stack Navigator
+  // Configurar título del header
   React.useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={fetchFeedback}
-          disabled={loading}
-          style={{ marginRight: 15 }}
-        >
-          {loading ? (
-            <Text style={styles.gloveSpinner}>🥊</Text>
-          ) : (
-            <Ionicons name="refresh" size={24} color={COLORS.secondary} />
-          )}
-        </TouchableOpacity>
-      ),
+      title: 'Feedback Nutricional con IA',
       headerBackTitle: 'Atrás',
     });
-  }, [navigation, loading]);
+  }, [navigation]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <View style={styles.container}>
+      {/* Loading Overlay */}
+      {refreshingAnalysis && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingOverlayContainer}>
+            <Animated.Text style={[styles.gloveSpinnerLarge, { transform: [{ rotate: spin }] }]}>
+              🥊
+            </Animated.Text>
+            <Text style={styles.loadingOverlayText}>Analizando de nuevo...</Text>
+            <Text style={styles.loadingOverlaySubtext}>La IA está procesando tus datos actualizados</Text>
+          </View>
+        </View>
+      )}
+
       {/* Content */}
       <ScrollView
         style={styles.scrollView}
@@ -424,11 +447,14 @@ export default function NutritionFeedbackScreen({ navigation, route }) {
             {/* Botón para nuevo análisis */}
             <TouchableOpacity
               style={styles.newAnalysisButton}
-              onPress={fetchFeedback}
-              disabled={loading}
+              onPress={() => {
+                setRefreshingAnalysis(true);
+                fetchFeedback().finally(() => setRefreshingAnalysis(false));
+              }}
+              disabled={loading || refreshingAnalysis}
             >
               <Ionicons name="refresh-circle" size={24} color={COLORS.secondary} />
-              <Text style={styles.newAnalysisText}>Actualizar Análisis</Text>
+              <Text style={styles.newAnalysisText}>Analizar de nuevo</Text>
             </TouchableOpacity>
           </Animated.View>
         ) : (
@@ -756,6 +782,33 @@ const styles = StyleSheet.create({
   },
   gloveSpinnerLarge: {
     fontSize: 48,
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    zIndex: 1000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingOverlayContainer: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingOverlayText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 20,
+  },
+  loadingOverlaySubtext: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginTop: 8,
     textAlign: 'center',
   },
 });

@@ -106,6 +106,14 @@ export default function StatsScreen({ navigation }) {
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 20 }}>
 
+      {/* Info Banner - Cálculo de estadísticas */}
+      <View style={styles.infoBanner}>
+        <Ionicons name="information-circle" size={20} color={COLORS.secondary} />
+        <Text style={styles.infoBannerText}>
+          Las estadísticas se calculan con días completados (no incluye el día actual)
+        </Text>
+      </View>
+
       {/* Plan Status Banner */}
       <View style={[styles.statusBanner, { backgroundColor: realStats.planStatusColor + '20', borderColor: realStats.planStatusColor }]}>
         <Ionicons 
@@ -543,6 +551,24 @@ const styles = StyleSheet.create({
   statusMessage: {
     fontSize: 14,
     color: COLORS.textSecondary,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 14,
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.secondary,
+    gap: 10,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   detailsSection: {
     paddingHorizontal: 20,

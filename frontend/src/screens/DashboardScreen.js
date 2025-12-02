@@ -1071,6 +1071,12 @@ export default function DashboardScreen({ navigation, route }) {
                   }
                 ]} />
               </View>
+              {((dailyProgressData?.actualCalories || dailyProgressData?.actual_calories || 0) / currentDayData.targets.caloriesIntake) >= 1 && (
+                <View style={styles.heroMetricBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color="#4CAF50" />
+                  <Text style={styles.heroMetricBadgeText}>Completado</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Agua Card */}
