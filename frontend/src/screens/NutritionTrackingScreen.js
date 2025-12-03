@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Animated, Alert, TextInput, Modal } from 'react-native';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { WEIGHT_CUT_API, NUTRITION_API } from '../config/api';
-import { getDayProgress } from '../services/progressService';
+import { getDayProgress, addDailyProgress } from '../services/progressService';
 import { calculateCurrentDayIndex, formatTime } from '../utils/dateUtils';
+import { validateCalories } from '../utils/validationHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -150,6 +151,8 @@ export default function NutritionTrackingScreen({ navigation }) {
     await loadTimelineData();
     setRefreshing(false);
   };
+
+
 
   // Listener para recargar cuando vuelve de Scanner
   useEffect(() => {
@@ -310,6 +313,7 @@ export default function NutritionTrackingScreen({ navigation }) {
               {remainingCalories >= 0 ? `Quedan ${remainingCalories} cal` : `Excedido por ${Math.abs(remainingCalories)} cal`}
             </Text>
           </View>
+
         </View>
       )}
 
@@ -535,6 +539,8 @@ export default function NutritionTrackingScreen({ navigation }) {
 
       <View style={styles.bottomSpacing} />
     </ScrollView>
+
+
   </View>
   );
 }
@@ -1042,5 +1048,118 @@ const styles = StyleSheet.create({
   gloveSpinnerLarge: {
     fontSize: 48,
     textAlign: 'center',
+  },
+  // Manual Calorie Button and Modal Styles (Lines 1175-1256)
+  manualCalorieButton: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 15,
+  },
+  manualCalorieButtonText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 20,
+    width: '85%',
+    maxWidth: 350,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.primary,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    flex: 1,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 10,
+  },
+  modalInput: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: COLORS.text,
+    borderWidth: 2,
+    borderColor: COLORS.secondary,
+    marginBottom: 10,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.primary,
+  },
+  modalButtonCancel: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.textSecondary,
+  },
+  modalButtonCancelText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalButtonSubmit: {
+    flex: 1,
+    backgroundColor: COLORS.secondary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonSubmitText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

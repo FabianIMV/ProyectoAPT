@@ -10,10 +10,12 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Alert
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { validateWeight } from '../utils/validationHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -23,11 +25,20 @@ export default function WeightInputModal({ visible, onClose, onSubmit, loading, 
   const handleSubmit = () => {
     const weightValue = parseFloat(weight);
 
-    if (isNaN(weightValue) || weightValue <= 0 || weightValue > 300) {
+    // Validar usando validateWeight
+    const validation = validateWeight(weightValue);
+
+    if (!validation.isValid) {
+      // Mostrar alerta con el mensaje humanizado
+      Alert.alert(
+        'Peso inválido',
+        validation.message,
+        [{ text: 'OK', style: 'default' }]
+      );
       return;
     }
 
-    onSubmit(weightValue);
+    onSubmit(validation.sanitizedValue);
     setWeight('');
   };
 
@@ -36,7 +47,7 @@ export default function WeightInputModal({ visible, onClose, onSubmit, loading, 
     onClose();
   };
 
-  const isValid = weight && parseFloat(weight) > 0 && parseFloat(weight) <= 300;
+  const isValid = weight && parseFloat(weight) > 0 && parseFloat(weight) >= 20 && parseFloat(weight) <= 500;
 
   // Calcular el mensaje contextual
   const getContextualMessage = () => {

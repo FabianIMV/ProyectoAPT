@@ -277,10 +277,20 @@ export default function WeightCutCalculatorScreen({ navigation }) {
     }
 
     // Target Weight validation
-    if (!targetWeightKg || parseFloat(targetWeightKg) < 30) {
-      newErrors.targetWeightKg = 'El peso objetivo debe ser mínimo 30 kg';
-    } else if (userProfile && parseFloat(targetWeightKg) >= parseFloat(userProfile.weight)) {
-      newErrors.targetWeightKg = 'El peso objetivo debe ser menor a tu peso actual';
+    if (!targetWeightKg) {
+      newErrors.targetWeightKg = 'Debes ingresar un peso objetivo';
+    } else {
+      const targetWeight = parseFloat(targetWeightKg);
+      
+      if (isNaN(targetWeight)) {
+        newErrors.targetWeightKg = 'El peso objetivo debe ser un número válido';
+      } else if (targetWeight < 30) {
+        newErrors.targetWeightKg = 'Peso incoherente ⚖️ (mínimo sensato: 30kg)';
+      } else if (targetWeight > 500) {
+        newErrors.targetWeightKg = 'Peso incoherente ⚖️ (máximo sensato: 500kg)';
+      } else if (userProfile && targetWeight >= parseFloat(userProfile.weight)) {
+        newErrors.targetWeightKg = 'El peso objetivo debe ser menor a tu peso actual';
+      }
     }
 
     // Date validations (OBLIGATORIAS)
@@ -323,12 +333,26 @@ export default function WeightCutCalculatorScreen({ navigation }) {
     }
 
     // Training sessions validation
-    if (!trainingSessionsPerWeek || parseInt(trainingSessionsPerWeek) < 1 || parseInt(trainingSessionsPerWeek) > 7) {
-      newErrors.trainingSessionsPerWeek = 'Entre 1 y 7 sesiones por semana';
+    if (!trainingSessionsPerWeek) {
+      newErrors.trainingSessionsPerWeek = 'Ingresa las sesiones de entrenamiento por semana';
+    } else {
+      const sessionsWeek = parseInt(trainingSessionsPerWeek);
+      if (isNaN(sessionsWeek) || sessionsWeek < 1) {
+        newErrors.trainingSessionsPerWeek = 'Mínimo 1 sesión por semana';
+      } else if (sessionsWeek > 7) {
+        newErrors.trainingSessionsPerWeek = 'Máximo 7 sesiones por semana (1 por día)';
+      }
     }
 
-    if (!trainingSessionsPerDay || parseInt(trainingSessionsPerDay) < 1 || parseInt(trainingSessionsPerDay) > 3) {
-      newErrors.trainingSessionsPerDay = 'Entre 1 y 3 sesiones por día';
+    if (!trainingSessionsPerDay) {
+      newErrors.trainingSessionsPerDay = 'Ingresa las sesiones de entrenamiento por día';
+    } else {
+      const sessionsDay = parseInt(trainingSessionsPerDay);
+      if (isNaN(sessionsDay) || sessionsDay < 1) {
+        newErrors.trainingSessionsPerDay = 'Mínimo 1 sesión por día';
+      } else if (sessionsDay > 3) {
+        newErrors.trainingSessionsPerDay = 'Máximo 3 sesiones por día';
+      }
     }
 
     setErrors(newErrors);
@@ -339,13 +363,36 @@ export default function WeightCutCalculatorScreen({ navigation }) {
 
   useEffect(() => {
     validateForm();
+    // Mostrar errores si hay alguno
+    if (Object.keys(errors).length > 0) {
+      setShowErrors(true);
+    }
   }, [formData]);
 
   const handleInputChange = (field, value) => {
+    // Validación en tiempo real para campos numéricos
+    if (field === 'targetWeightKg' && value) {
+      // Solo permitir números y un punto decimal
+      const cleaned = value.replace(/[^0-9.]/g, '');
+      // Limitar a máximo 3 dígitos enteros (máximo 500kg)
+      if (cleaned.split('.')[0].length > 3) return;
+      value = cleaned;
+    } else if ((field === 'trainingSessionsPerWeek' || field === 'trainingSessionsPerDay') && value) {
+      // Solo permitir números 1-9
+      value = value.replace(/[^1-9]/g, '');
+      // Solo un dígito
+      if (value.length > 1) return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // Mostrar errores si el usuario está escribiendo
+    if (value && value.length > 0) {
+      setShowErrors(true);
+    }
   };
 
   // Formatear hora automáticamente (HH:mm)
@@ -366,6 +413,11 @@ export default function WeightCutCalculatorScreen({ navigation }) {
     }
     
     setFormData(prev => ({ ...prev, weighInTime: formatted }));
+    
+    // Mostrar errores si el usuario está escribiendo
+    if (formatted && formatted.length > 0) {
+      setShowErrors(true);
+    }
   };
 
   // Función para hacer scroll automático a una posición

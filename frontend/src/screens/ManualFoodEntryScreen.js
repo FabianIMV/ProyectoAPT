@@ -60,9 +60,15 @@ export default function ManualFoodEntryScreen({ navigation }) {
       return;
     }
 
-    if (portionType === 'gramos' && (!portionGrams || parseFloat(portionGrams) <= 0)) {
-      Alert.alert('Error', 'Por favor ingresa los gramos');
-      return;
+    if (portionType === 'gramos') {
+      if (!portionGrams || parseFloat(portionGrams) <= 0) {
+        Alert.alert('Error', 'Por favor ingresa los gramos');
+        return;
+      }
+      if (parseFloat(portionGrams) > 5000) {
+        Alert.alert('Error', 'Cifra incoherente - Porción demasiado grande (máximo 5000g)');
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -132,17 +138,7 @@ export default function ManualFoodEntryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.secondary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Registro Manual</Text>
-      </View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!isLoading}>
-        <Text style={styles.subtitle}>
-          Ingresa los detalles del alimento y la IA estimará su información nutricional
-        </Text>
 
         {/* Nombre del alimento */}
         <View style={styles.section}>
@@ -277,30 +273,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.primary,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 15,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 25,
-    lineHeight: 20,
   },
   section: {
     marginBottom: 30,

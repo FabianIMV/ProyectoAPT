@@ -10,10 +10,12 @@ import {
   ScrollView,
   Dimensions,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { COLORS } from '../styles/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { validateWaterIntake } from '../utils/validationHelpers';
 
 const { width } = Dimensions.get('window');
 
@@ -38,11 +40,15 @@ export default function WaterIntakeModal({ visible, onClose, onSubmit, loading }
   const handleSubmit = () => {
     const amount = selectedPreset || parseInt(customAmount);
 
-    if (isNaN(amount) || amount <= 0) {
+    // Validate water intake using validation helper
+    const validation = validateWaterIntake(amount);
+
+    if (!validation.isValid) {
+      Alert.alert('Validación de Agua', validation.message);
       return;
     }
 
-    onSubmit(amount);
+    onSubmit(validation.sanitizedValue);
     setCustomAmount('');
     setSelectedPreset(null);
   };

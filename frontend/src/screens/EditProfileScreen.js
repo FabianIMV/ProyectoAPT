@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '../styles/colors';
 import { useAuth } from '../context/AuthContext';
 import { uploadProfilePicture, deleteProfilePicture } from '../services/supabase';
+import { validateWeight, validateHeight, validateAge } from '../utils/validationHelpers';
 
 export default function ProfileScreen({ navigation, route }) {
   const [name, setName] = useState('');
@@ -15,6 +16,11 @@ export default function ProfileScreen({ navigation, route }) {
   const [profilePictureUrl, setProfilePictureUrl] = useState('');
   const [oldProfilePictureUrl, setOldProfilePictureUrl] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // Estados para validación en tiempo real
+  const [errors, setErrors] = useState({});
+  const [showErrors, setShowErrors] = useState(false);
+  
   const { user } = useAuth();
 
   // Verificar si el perfil está incompleto (usuario forzado a completar perfil)
@@ -167,7 +173,7 @@ export default function ProfileScreen({ navigation, route }) {
     );
   };
 
-  const validateWeight = (value) => {
+  const sanitizeWeightInput = (value) => {
     // Permitir solo números y un punto decimal
     const sanitized = value.replace(/[^0-9.]/g, '');
     // Evitar múltiples puntos decimales
@@ -178,29 +184,68 @@ export default function ProfileScreen({ navigation, route }) {
     return sanitized;
   };
 
-  const validateHeight = (value) => {
+  const sanitizeHeightInput = (value) => {
     // Permitir solo números enteros
     return value.replace(/[^0-9]/g, '');
   };
 
-  const validateAge = (value) => {
+  const sanitizeAgeInput = (value) => {
     // Permitir solo números enteros
     return value.replace(/[^0-9]/g, '');
   };
 
   const handleWeightChange = (value) => {
-    const validated = validateWeight(value);
-    setWeight(validated);
+    const sanitized = sanitizeWeightInput(value);
+    setWeight(sanitized);
+    validateField('weight', sanitized);
   };
 
   const handleHeightChange = (value) => {
-    const validated = validateHeight(value);
-    setHeight(validated);
+    const sanitized = sanitizeHeightInput(value);
+    setHeight(sanitized);
+    validateField('height', sanitized);
   };
 
   const handleAgeChange = (value) => {
-    const validated = validateAge(value);
-    setAge(validated);
+    const sanitized = sanitizeAgeInput(value);
+    setAge(sanitized);
+    validateField('age', sanitized);
+  };
+
+  // Validar campos individuales en tiempo real
+  const validateField = (field, value) => {
+    const newErrors = { ...errors };
+    
+    if (field === 'weight' && value) {
+      const validation = validateWeight(value);
+      if (!validation.isValid) {
+        newErrors.weight = validation.message;
+        setShowErrors(true);
+      } else {
+        delete newErrors.weight;
+      }
+    } else if (field === 'height' && value) {
+      const validation = validateHeight(value);
+      if (!validation.isValid) {
+        newErrors.height = validation.message;
+        setShowErrors(true);
+      } else {
+        delete newErrors.height;
+      }
+    } else if (field === 'age' && value) {
+      const validation = validateAge(value);
+      if (!validation.isValid) {
+        newErrors.age = validation.message;
+        setShowErrors(true);
+      } else {
+        delete newErrors.age;
+      }
+    } else {
+      // Borrar error si el campo está vacío
+      delete newErrors[field];
+    }
+    
+    setErrors(newErrors);
   };
 
   const handleSaveProfile = async () => {
@@ -214,23 +259,29 @@ export default function ProfileScreen({ navigation, route }) {
       return;
     }
 
-    // Validaciones específicas
-    const weightNum = parseFloat(weight);
-    const heightNum = parseInt(height);
-    const ageNum = parseInt(age);
-
-    if (weightNum <= 0 || weightNum > 300) {
-      Alert.alert('Error', 'El peso debe estar entre 1 y 300 kg');
-      return;
+    // Validar todos los campos
+    const newErrors = {};
+    
+    const weightValidation = validateWeight(weight);
+    if (!weightValidation.isValid) {
+      newErrors.weight = weightValidation.message;
     }
 
-    if (heightNum <= 0 || heightNum > 250) {
-      Alert.alert('Error', 'La altura debe estar entre 1 y 250 cm');
-      return;
+    const heightValidation = validateHeight(height);
+    if (!heightValidation.isValid) {
+      newErrors.height = heightValidation.message;
     }
 
-    if (ageNum <= 0 || ageNum > 120) {
-      Alert.alert('Error', 'La edad debe estar entre 1 y 120 años');
+    const ageValidation = validateAge(age);
+    if (!ageValidation.isValid) {
+      newErrors.age = ageValidation.message;
+    }
+
+    setErrors(newErrors);
+    
+    // Si hay errores, mostrarlos y no continuar
+    if (Object.keys(newErrors).length > 0) {
+      setShowErrors(true);
       return;
     }
 
@@ -239,9 +290,9 @@ export default function ProfileScreen({ navigation, route }) {
       const profileData = {
         email: user.email,
         name,
-        weight: weightNum,
-        height: heightNum,
-        age: ageNum,
+        weight: weightValidation.sanitizedValue,
+        height: heightValidation.sanitizedValue,
+        age: ageValidation.sanitizedValue,
         profile_picture_url: profilePictureUrl
       };
 
@@ -359,7 +410,7 @@ export default function ProfileScreen({ navigation, route }) {
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Peso Actual (kg)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, showErrors && errors.weight && styles.inputError]}
           placeholder="Ej: 70.5"
           placeholderTextColor={COLORS.textSecondary}
           value={weight}
@@ -367,13 +418,14 @@ export default function ProfileScreen({ navigation, route }) {
           keyboardType="decimal-pad"
           maxLength={5}
         />
-        <Text style={styles.helperText}>Rango válido: 1 - 300 kg</Text>
+        {showErrors && errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
+        {!errors.weight && <Text style={styles.helperText}>Rango válido: 20 - 500 kg</Text>}
       </View>
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Altura (cm)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, showErrors && errors.height && styles.inputError]}
           placeholder="Ej: 175"
           placeholderTextColor={COLORS.textSecondary}
           value={height}
@@ -381,13 +433,14 @@ export default function ProfileScreen({ navigation, route }) {
           keyboardType="number-pad"
           maxLength={3}
         />
-        <Text style={styles.helperText}>Rango válido: 1 - 250 cm</Text>
+        {showErrors && errors.height && <Text style={styles.errorText}>{errors.height}</Text>}
+        {!errors.height && <Text style={styles.helperText}>Rango válido: 50 - 250 cm</Text>}
       </View>
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Edad (años)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, showErrors && errors.age && styles.inputError]}
           placeholder="Ej: 25"
           placeholderTextColor={COLORS.textSecondary}
           value={age}
@@ -395,7 +448,8 @@ export default function ProfileScreen({ navigation, route }) {
           keyboardType="number-pad"
           maxLength={3}
         />
-        <Text style={styles.helperText}>Rango válido: 1 - 120 años</Text>
+        {showErrors && errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
+        {!errors.age && <Text style={styles.helperText}>Rango válido: 10 - 120 años</Text>}
       </View>
 
       <TouchableOpacity
@@ -449,6 +503,20 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputError: {
+    borderColor: COLORS.error,
+    borderWidth: 2,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 13,
+    marginTop: -12,
+    marginBottom: 10,
+    paddingLeft: 5,
+    fontWeight: '500',
   },
   saveButton: {
     backgroundColor: COLORS.secondary,
