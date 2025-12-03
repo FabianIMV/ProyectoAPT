@@ -22,11 +22,32 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["CAMERA", "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"]
+      "permissions": [
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
-    "permissions": ["CAMERA", "CAMERA_ROLL"],
+    "permissions": [
+      "CAMERA",
+      "CAMERA_ROLL"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a67cbed3-c662-47eb-93dd-d77863631173"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a67cbed3-c662-47eb-93dd-d77863631173"
     }
   }
 }
