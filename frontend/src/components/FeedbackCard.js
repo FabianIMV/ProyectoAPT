@@ -28,6 +28,22 @@ const FeedbackCard = ({ feedback, userName }) => {
     }
   };
 
+  const getHumanizedPhaseName = (phase) => {
+    if (!phase) return '';
+    
+    const phaseNames = {
+      'SEVERE_DEPLETION': 'Depleción Severa',
+      'MODERATE_DEPLETION': 'Depleción Moderada',
+      'MILD_DEPLETION': 'Depleción Ligera',
+      'WATER_CUT': 'Corte de Agua',
+      'CARB_LOADING': 'Carga de Carbohidratos',
+      'MAINTENANCE': 'Mantenimiento',
+      'RECOVERY': 'Recuperación'
+    };
+    
+    return phaseNames[phase] || phase;
+  };
+
   const severityColor = getSeverityColor(feedback.severity);
   const displayName = userName || 'Atleta';
 
@@ -108,7 +124,7 @@ const FeedbackCard = ({ feedback, userName }) => {
         <View style={styles.metadataContainer}>
           <Text style={styles.metadataText}>
             Día {feedback.metadata.dayNumber} de {feedback.metadata.totalDays}
-            {feedback.metadata.phase && ` • ${feedback.metadata.phase}`}
+            {feedback.metadata.phase && ` • ${getHumanizedPhaseName(feedback.metadata.phase)}`}
           </Text>
         </View>
       )}
