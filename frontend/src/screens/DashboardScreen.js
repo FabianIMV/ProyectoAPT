@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Alert, SafeAreaView, Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../styles/colors';
@@ -108,13 +109,6 @@ export default function DashboardScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
-  // Cargar agua cuando tengamos timelineId y currentDayNumber
-  useEffect(() => {
-    if (timelineId && currentDayNumber !== null) {
-      loadWaterIntake();
-    }
-  }, [timelineId, currentDayNumber]);
-
   // Cargar alertas cerradas desde AsyncStorage
   const loadDismissedAlerts = async () => {
     try {
@@ -199,29 +193,7 @@ export default function DashboardScreen({ navigation, route }) {
   };
 
   // Función deprecada - ahora se usa calculateCurrentDayIndex desde utils/dateUtils
-
-  const loadWaterIntake = async () => {
-    if (!userId || !timelineId || currentDayNumber === null) {
-      console.log('⚠️ No se puede cargar agua: faltan datos', { userId, timelineId, currentDayNumber });
-      return;
-    }
-
-    try {
-      // Intentar obtener datos del día actual desde Daily Progress
-      const result = await getDayProgress(userId, timelineId, currentDayNumber);
-      if (result.success && result.data) {
-        const waterLiters = result.data.actualWaterLiters || 0;
-        setDailyWaterIntake(waterLiters);
-        console.log(`✅ Agua del día ${currentDayNumber}: ${waterLiters}L`);
-      } else if (result.notFound) {
-        // Día aún no iniciado (pending)
-        setDailyWaterIntake(0);
-        console.log(`ℹ️ Día ${currentDayNumber} aún no tiene progreso registrado`);
-      }
-    } catch (error) {
-      console.error('Error cargando consumo de agua:', error);
-    }
-  };
+  // loadWaterIntake ya no es necesaria, el agua se carga directamente en loadDashboardData
 
   const loadDashboardData = async (isManualRefresh = false) => {
     setLoadingWeightCut(true);
@@ -651,7 +623,19 @@ export default function DashboardScreen({ navigation, route }) {
       const result = await addWaterIntake(userId, timelineId, currentDayNumber, amount);
 
       if (result.success) {
-        await loadWaterIntake();
+        // Actualizar directamente el estado y dailyProgressData
+        const newWaterValue = (dailyProgressData?.actualWaterLiters || dailyProgressData?.actual_water_liters || 0) + (amount / 1000);
+        setDailyWaterIntake(newWaterValue);
+        
+        // Actualizar dailyProgressData para mantener consistencia
+        if (dailyProgressData) {
+          setDailyProgressData({
+            ...dailyProgressData,
+            actualWaterLiters: newWaterValue,
+            actual_water_liters: newWaterValue
+          });
+        }
+        
         Alert.alert('Registrado', `${amount}ml de agua agregados correctamente`);
         setWaterModalVisible(false);
       } else {
@@ -1110,7 +1094,9 @@ export default function DashboardScreen({ navigation, route }) {
               </View>
               <Text style={styles.heroMetricLabel}>Hidratación</Text>
               <View style={styles.heroMetricValues}>
-                <Text style={styles.heroMetricCurrent}>{dailyWaterIntake.toFixed(1)}</Text>
+                <Text style={styles.heroMetricCurrent}>
+                  {(dailyProgressData?.actualWaterLiters || dailyProgressData?.actual_water_liters || dailyWaterIntake || 0).toFixed(1)}
+                </Text>
                 <Text style={styles.heroMetricUnit}>L</Text>
               </View>
               <Text style={styles.heroMetricTarget}>
@@ -1697,6 +1683,23 @@ export default function DashboardScreen({ navigation, route }) {
         onSubmit={handleAddWeight}
         loading={savingWeight}
         currentDay={currentDayNumber}
+        existingWeight={(() => {
+          const targetDayForWeight = currentDayNumber > 1 ? currentDayNumber - 1 : currentDayNumber;
+          const weight = currentDayNumber > 1 
+            ? (yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg)
+            : (dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg);
+          
+          console.log('🔍 Verificando peso existente:', {
+            currentDayNumber,
+            targetDayForWeight,
+            yesterdayWeight: yesterdayProgressData?.actualWeightKg || yesterdayProgressData?.actual_weight_kg,
+            todayWeight: dailyProgressData?.actualWeightKg || dailyProgressData?.actual_weight_kg,
+            selectedWeight: weight
+          });
+          
+          return weight;
+        })()}
+        targetDay={currentDayNumber > 1 ? currentDayNumber - 1 : currentDayNumber}
       />
 
       {/* Modal de Loading para Reajuste Automático */}
@@ -3002,22 +3005,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     marginBottom: 6,
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
   },
   heroMetricCurrent: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
   },
   heroMetricUnit: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    marginLeft: 4,
+    marginLeft: 3,
     fontWeight: '600',
   },
   heroMetricTarget: {
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.textSecondary,
     marginBottom: 10,
+    textAlign: 'center',
   },
   heroMetricProgress: {
     height: 6,

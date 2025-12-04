@@ -164,8 +164,10 @@ export const calculateRealStats = async (userId, timelineId, currentDayNumber, t
 
     // === ANÁLISIS DE RACHA ===
     let currentStreak = 0;
-    const COMPLIANCE_THRESHOLD = 0.7; // 70% mínimo para considerar día cumplido
+    const COMPLIANCE_MIN = 0.7; // 70% mínimo
+    const COMPLIANCE_MAX = 1.5; // 150% máximo (valores exagerados no cuentan)
 
+    // Buscar desde el día más reciente hacia atrás
     for (let i = daysWithData.length - 1; i >= 0; i--) {
       const dayData = daysWithData[i];
       const dayIndex = i;
@@ -178,12 +180,16 @@ export const calculateRealStats = async (userId, timelineId, currentDayNumber, t
       const water = parseFloat(dayData.actualWaterLiters || dayData.actual_water_liters || 0);
       const waterTarget = parseFloat(dayTargets.waterIntakeLiters || 0);
 
-      // Considerar día cumplido si:
-      // - Tiene datos de calorías Y agua
-      // - Ambos están al menos al 70% de la meta
-      const hasData = (calories > 0 || water > 0);
-      const caloriesMet = caloriesTarget > 0 ? (calories / caloriesTarget) >= COMPLIANCE_THRESHOLD : false;
-      const waterMet = waterTarget > 0 ? (water / waterTarget) >= COMPLIANCE_THRESHOLD : false;
+      // Calcular cumplimiento
+      const caloriesRatio = caloriesTarget > 0 ? (calories / caloriesTarget) : 0;
+      const waterRatio = waterTarget > 0 ? (water / waterTarget) : 0;
+
+      // Día cumplido si ambos están entre 70-150% de la meta
+      const caloriesMet = caloriesRatio >= COMPLIANCE_MIN && caloriesRatio <= COMPLIANCE_MAX;
+      const waterMet = waterRatio >= COMPLIANCE_MIN && waterRatio <= COMPLIANCE_MAX;
+      const hasData = (calories > 0 && water > 0);
+
+      console.log(`📅 Día ${dayIndex + 1}: Cal=${caloriesRatio.toFixed(2)} (${caloriesMet ? '✅' : '❌'}), Agua=${waterRatio.toFixed(2)} (${waterMet ? '✅' : '❌'})`);
 
       if (hasData && caloriesMet && waterMet) {
         currentStreak++;

@@ -19,11 +19,19 @@ import { validateWeight } from '../utils/validationHelpers';
 
 const { width } = Dimensions.get('window');
 
-export default function WeightInputModal({ visible, onClose, onSubmit, loading, currentDay }) {
+export default function WeightInputModal({ visible, onClose, onSubmit, loading, currentDay, existingWeight, targetDay }) {
   const [weight, setWeight] = useState('');
 
   const handleSubmit = () => {
     const weightValue = parseFloat(weight);
+
+    console.log('🔍 WeightInputModal handleSubmit:', {
+      weightValue,
+      existingWeight,
+      currentDay,
+      targetDay,
+      hasExistingWeight: existingWeight && existingWeight > 0
+    });
 
     // Validar usando validateWeight
     const validation = validateWeight(weightValue);
@@ -38,8 +46,36 @@ export default function WeightInputModal({ visible, onClose, onSubmit, loading, 
       return;
     }
 
-    onSubmit(validation.sanitizedValue);
-    setWeight('');
+    // Si ya existe un peso registrado, confirmar sobrescritura
+    if (existingWeight && existingWeight > 0) {
+      console.log('✅ Mostrando alerta de peso ya registrado');
+      const dayText = targetDay && currentDay !== targetDay 
+        ? `para el día ${targetDay} (peso del día anterior)` 
+        : 'para hoy';
+      
+      Alert.alert(
+        'Peso ya registrado',
+        `Ya habías registrado un peso de ${existingWeight.toFixed(1)}kg ${dayText}. ¿Deseas sobrescribirlo con ${validation.sanitizedValue.toFixed(1)}kg?`,
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel'
+          },
+          {
+            text: 'Sobrescribir',
+            style: 'destructive',
+            onPress: () => {
+              onSubmit(validation.sanitizedValue);
+              setWeight('');
+            }
+          }
+        ]
+      );
+    } else {
+      console.log('⚠️ No hay peso existente, registrando directamente');
+      onSubmit(validation.sanitizedValue);
+      setWeight('');
+    }
   };
 
   const handleClose = () => {
@@ -170,7 +206,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
     justifyContent: 'flex-end',
   },
   modalContainer: {

@@ -12,18 +12,21 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Keyboard,
-  SafeAreaView
+  SafeAreaView,
+  ToastAndroid
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/colors';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { useWeightCutAnalysis } from '../context/WeightCutAnalysisContext';
 import { WEIGHT_CUT_API, PROFILE_API } from '../config/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function WeightCutCalculatorScreen({ navigation }) {
   const { user, userId } = useAuth();
+  const { startAnalysis, finishAnalysis, analysisReady, analysisData, clearAnalysis } = useWeightCutAnalysis();
   const [userProfile, setUserProfile] = useState(null);
   const scrollViewRef = useRef(null);
   
@@ -522,6 +525,7 @@ export default function WeightCutCalculatorScreen({ navigation }) {
     }
 
     setIsLoading(true);
+    startAnalysis(); // Notificar al contexto global que comenzó el análisis
 
     try {
       const requestBody = {
@@ -594,8 +598,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       const result = await response.json();
       console.log('API Response:', result);
 
-      // Navigate to results screen
-      navigation.navigate('WeightCutResults', {
+      // Guardar resultado en contexto global con formData completo
+      const completeAnalysisData = {
         analysisResult: result,
         formData: {
           ...formData,
@@ -603,25 +607,28 @@ export default function WeightCutCalculatorScreen({ navigation }) {
           userHeight: userProfile.height,
           userAge: userProfile.age
         }
-      });
+      };
+      
+      finishAnalysis(completeAnalysisData);
 
     } catch (error) {
       console.error('Error analyzing weight cut:', error);
       console.error('Error name:', error.name);
+      
       console.error('Error message:', error.message);
 
       let errorMessage = 'No se pudo analizar el plan de corte. Intenta nuevamente.';
 
       if (error.name === 'AbortError') {
-        errorMessage = 'La petición tardó demasiado. Verifica tu conexión a internet.';
+        errorMessage = 'La conexión tardó demasiado ⏱️ Verifica tu internet e intenta nuevamente.';
       } else if (error.name === 'SyntaxError' || error.message.includes('JSON')) {
-        errorMessage = 'Error al procesar la respuesta del servidor. Por favor verifica que el backend esté funcionando correctamente y devolviendo JSON.';
+        errorMessage = 'Error al procesar respuesta del servidor 🔧 El servicio puede estar saturado, intenta en unos minutos.';
       } else if (error.message.includes('400')) {
-        errorMessage = 'Datos inválidos. Verifica que el peso objetivo sea menor al actual.';
+        errorMessage = 'Datos inválidos ⚠️ Verifica que el peso objetivo sea menor al actual.';
       } else if (error.message.includes('502') || error.message.includes('500')) {
-        errorMessage = 'Error del servidor. Por favor intenta nuevamente en unos momentos.';
+        errorMessage = 'Servicio temporalmente saturado 🔥 La IA está procesando muchas solicitudes. Intenta en 1-2 minutos.';
       } else if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
-        errorMessage = 'Error de conexión. Verifica tu conexión a internet y que el servidor backend esté corriendo.';
+        errorMessage = 'Sin conexión a internet 📡 Verifica tu WiFi/datos móviles e intenta nuevamente.';
       } else if (error.message.includes('JSON válido')) {
         errorMessage = error.message; // Usar el mensaje personalizado
       }
@@ -682,6 +689,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
               value={formData.targetWeightKg}
               onChangeText={(value) => handleInputChange('targetWeightKg', value)}
               keyboardType="numeric"
+              autoComplete="off"
+              textContentType="none"
             />
             {showErrors && errors.targetWeightKg && <Text style={styles.errorText}>{errors.targetWeightKg}</Text>}
           </View>
@@ -831,6 +840,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 onChangeText={handleTimeChange}
                 keyboardType="number-pad"
                 maxLength={5}
+                autoComplete="off"
+                textContentType="none"
               />
               {showErrors && errors.weighInTime && <Text style={styles.errorText}>{errors.weighInTime}</Text>}
               <Text style={styles.helperText}>
@@ -992,6 +1003,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 value={formData.trainingSessionsPerWeek}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerWeek', value)}
                 keyboardType="numeric"
+                autoComplete="off"
+                textContentType="none"
               />
               {showErrors && errors.trainingSessionsPerWeek && <Text style={styles.errorText}>{errors.trainingSessionsPerWeek}</Text>}
             </View>
@@ -1006,6 +1019,8 @@ export default function WeightCutCalculatorScreen({ navigation }) {
                 value={formData.trainingSessionsPerDay}
                 onChangeText={(value) => handleInputChange('trainingSessionsPerDay', value)}
                 keyboardType="numeric"
+                autoComplete="off"
+                textContentType="none"
               />
               {showErrors && errors.trainingSessionsPerDay && <Text style={styles.errorText}>{errors.trainingSessionsPerDay}</Text>}
             </View>
@@ -1030,6 +1045,75 @@ export default function WeightCutCalculatorScreen({ navigation }) {
       </ScrollView>
       </KeyboardAvoidingView>
     </View>
+    
+    {/* Overlay de Resultados cuando analysisReady === true */}
+    {analysisReady && analysisData && (
+      <View style={styles.resultsOverlay}>
+        <ScrollView 
+          contentContainerStyle={styles.resultsOverlayContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.resultsHeader}>
+            <Ionicons name="checkmark-circle" size={60} color={COLORS.secondary} />
+            <Text style={styles.resultsTitle}>¡Plan de Corte Listo! ✅</Text>
+            <Text style={styles.resultsSubtitle}>
+              Tu plan personalizado está preparado
+            </Text>
+          </View>
+
+          <View style={styles.resultsPreview}>
+            <Text style={styles.previewLabel}>Resumen del Plan</Text>
+            <View style={styles.previewRow}>
+              <Text style={styles.previewKey}>Peso Actual:</Text>
+              <Text style={styles.previewValue}>{analysisData.formData.currentWeightKg} kg</Text>
+            </View>
+            <View style={styles.previewRow}>
+              <Text style={styles.previewKey}>Peso Objetivo:</Text>
+              <Text style={styles.previewValue}>{analysisData.formData.targetWeightKg} kg</Text>
+            </View>
+            <View style={styles.previewRow}>
+              <Text style={styles.previewKey}>Días de Corte:</Text>
+              <Text style={styles.previewValue}>{analysisData.formData.daysToCut} días</Text>
+            </View>
+          </View>
+
+          <View style={styles.resultsActions}>
+            <TouchableOpacity
+              style={styles.acceptButton}
+              onPress={() => {
+                // Navegar a resultados y limpiar el estado
+                navigation.navigate('WeightCutResults', analysisData);
+                clearAnalysis();
+              }}
+            >
+              <Ionicons name="eye" size={24} color={COLORS.primary} />
+              <Text style={styles.acceptButtonText}>Ver Plan Completo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={() => {
+                Alert.alert(
+                  'Descartar Plan',
+                  '¿Estás seguro de que quieres descartar este plan de corte?',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { 
+                      text: 'Descartar', 
+                      style: 'destructive',
+                      onPress: () => clearAnalysis()
+                    }
+                  ]
+                );
+              }}
+            >
+              <Ionicons name="close-circle" size={24} color={COLORS.error || '#ff3b30'} />
+              <Text style={styles.rejectButtonText}>Descartar</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    )}
     </SafeAreaView>
   );
 }
@@ -1500,5 +1584,109 @@ const styles = StyleSheet.create({
   datePickerIOS: {
     backgroundColor: COLORS.accent,
     height: 200,
+  },
+  // Results Overlay Styles
+  resultsOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.primary,
+    zIndex: 1000,
+  },
+  resultsOverlayContent: {
+    flexGrow: 1,
+    padding: 20,
+    paddingTop: 60,
+  },
+  resultsHeader: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  resultsTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  resultsSubtitle: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  resultsPreview: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: COLORS.secondary + '30',
+  },
+  previewLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginBottom: 16,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.primary,
+  },
+  previewKey: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
+  previewValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  resultsActions: {
+    gap: 16,
+  },
+  acceptButton: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 16,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  acceptButtonText: {
+    color: COLORS.primary,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  rejectButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 16,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderColor: '#ff3b3050',
+  },
+  rejectButtonText: {
+    color: '#ff3b30',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

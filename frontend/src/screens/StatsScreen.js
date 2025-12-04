@@ -231,7 +231,7 @@ export default function StatsScreen({ navigation }) {
                   { width: `${Math.min(100, realStats.weightProgress)}%` }
                 ]} />
               </View>
-              <Text style={styles.detailProgressText}>{realStats.weightProgress}%</Text>
+              <Text style={styles.detailProgressText}>{Math.min(100, Math.round(realStats.weightProgress))}%</Text>
             </View>
           </View>
         </View>
